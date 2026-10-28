@@ -1,0 +1,49 @@
+## Build results
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+## Test results
+[Tt]est[Rr]esult*/
+*.trx
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+!packages/build/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Publish output
+[Pp]ublish/
+*.[Pp]ublish.xml
+*.pubxml
+*.publishproj
+
+## Rider / ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+## OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## ASP.NET Core / secrets
+appsettings.*.local.json
+*.pfx
+*.p12
