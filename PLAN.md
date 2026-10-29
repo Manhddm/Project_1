@@ -62,9 +62,9 @@ HTML đặt badge **"MỐC MVP"** tại mốc 4 nhưng danh sách 12 tiêu chí 
 | **D-04** | Backend lưu file ảnh (local private / blob storage) | **[TBD]** | P6-01 |
 | **D-05** | Công cụ provision thiết bị (CLI nội bộ hay endpoint admin) | **[TBD]** — HTML chỉ nói "Server biết..." | P2-02 |
 | **D-06** | Firmware ESP32 nằm trong repo này hay repo riêng; ai sở hữu | **[TBD]** | HW-* |
-| **D-07** | Định dạng xác thực thiết bị trên HTTP | **[ĐỀ XUẤT]** header `X-Device-Id` + `X-Device-Api-Key` | P2-06 |
-| **D-08** | Định dạng/độ dài/hạn dùng pairing code và payload QR | **[TBD]** (đề xuất payload ở API contract) | P2-02, P2-03 |
-| **D-09** | Giá trị enum: `DoseStatus`, `AlertType`, `DeviceEventType`, `PairingState` | **[ĐỀ XUẤT]** tại API_CONTRACT §7; cần xác nhận | P0-03 |
+| **D-07** | Định dạng xác thực thiết bị trên HTTP | **[ĐÃ CHỐT 2026-10-29]** — header `X-Device-Id` + `X-Device-Api-Key`; khóa 32 byte base64url; lưu HMAC+pepper; so sánh constant-time | P2-06 |
+| **D-08** | Định dạng/độ dài/hạn dùng pairing code và payload QR | **[ĐÃ CHỐT 2026-10-29]** — 8 ký tự Crockford Base32 (40 bit), TTL 15 phút, QR `{"v":1,"code":"<code>"}` | P2-02, P2-03 |
+| **D-09** | Giá trị enum: `DoseStatus`, `AlertType`, `DeviceEventType`, `PairingState` | **[ĐÃ CHỐT 2026-10-29]** — enum tại API_CONTRACT §10.2 + enum schema-only; `daysOfWeek` ISO-8601; `Channel = Email` | P0-03 |
 | **D-10** | Nguồn `TimeZoneId` cho lịch; một hay nhiều timezone trên một hộp; dashboard "hôm nay" nhóm theo timezone nào | **[TBD]** | P3-01, P3-06 |
 | **D-11** | Tầm sinh trước (horizon) và tần suất job sinh dose | **[TBD]** | P3-03 |
 | **D-12** | Ngưỡng coi thiết bị offline (dựa trên `LastSeenAt`) | **[TBD]** | P4-04 |
@@ -245,11 +245,11 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 ### <a id="p2-02"></a>P2-02 · Quy trình provision & sinh khóa thiết bị
 
 - **Mục tiêu:** Có cách tạo thiết bị với `DeviceApiKey` và pairing code an toàn.
-- **Đầu vào:** P2-01, P0-05; D-05; D-08.
+- **Đầu vào:** P2-01, P0-05; D-05; D-08 (đã chốt).
 - **Đầu ra:** Công cụ provision (CLI/endpoint theo D-05); sinh `DeviceApiKey` ngẫu nhiên (hiển thị một lần), lưu hash; sinh pairing code + hạn (hash); audit.
 - **Phụ thuộc:** P2-01, P0-05.
 - **Acceptance / DoD:** Không log/lưu khóa rõ; test provision tạo đủ 3 ngăn; pairing code hết hạn bị từ chối; không thể lấy lại khóa.
-- **Ghi chú:** [TBD-D05, D-08] Định dạng mã, hạn dùng, quy trình nhà máy.
+- **Ghi chú:** [TBD-D05] Quy trình nhà máy; định dạng mã/hạn dùng theo D-08 đã chốt (8 ký tự Crockford Base32, 15 phút).
 
 ### <a id="p2-03"></a>P2-03 · Payload QR & in nhãn
 
@@ -258,7 +258,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** Đặc tả payload QR; generator tạo QR; mẫu nhãn; tài liệu quy trình in.
 - **Phụ thuộc:** P2-02.
 - **Acceptance / DoD:** Giải mã QR chỉ thấy pairing code + phiên bản; tuyệt đối không có `DeviceApiKey`, serial nhạy cảm hay URL chứa token; test scan mẫu.
-- **Ghi chú:** [ĐỀ XUẤT] Payload: `{ "v":1, "code":"<code>" }` hoặc URI nội bộ; chờ D-08.
+- **Ghi chú:** D-08 đã chốt: payload `{ "v":1, "code":"<code>" }`; không dùng URI chứa token.
 
 ### <a id="p2-04"></a>P2-04 · API ghép hộp (atomic, một lần)
 

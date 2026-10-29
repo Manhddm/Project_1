@@ -1,8 +1,8 @@
 # API_CONTRACT.md — Hợp đồng API MVP Hộp thuốc thông minh
 
-> Phiên bản: 1.3 · Ngày: 2026-10-29 · Trạng thái: **Nháp có kiểm soát — chờ chốt các TBD tại §15**
+> Phiên bản: 1.4 · Ngày: 2026-10-29 · Trạng thái: **Đã chốt cấu trúc cho Phase 1–2 (D-07, D-08, D-09); các TBD còn lại giữ nguyên nhãn tại §15**
 >
-> Bản 1.3 rà soát QA: bỏ tàn dư refresh token ở logout/reset-password sau khi chốt D-02.
+> Bản 1.4 (P0-03): chốt D-07 (xác thực thiết bị), D-08 (pairing code + payload QR), D-09 (enum & `daysOfWeek`); chốt quy ước ProblemDetails và catalog lỗi. Bản 1.3 rà soát QA: bỏ tàn dư refresh token ở logout/reset-password sau khi chốt D-02.
 >
 > Tài liệu liên quan: [AGENTS.md](AGENTS.md) · [PLAN.md](PLAN.md) · [TASKS.md](TASKS.md)
 >
@@ -24,7 +24,7 @@
 | Thời gian | ISO 8601 có offset, chuẩn hóa UTC (`2026-10-02T12:00:00Z`) |
 | Ngày | `yyyy-MM-dd`; giờ trong ngày | `HH:mm` (24h) |
 | Số lượng thuốc | JSON number, tối đa `decimal(10,2)` |
-| Ngày trong tuần | `1` = Thứ 2 … `7` = Chủ nhật (ISO-8601) **[ĐỀ XUẤT — D-09]** |
+| Ngày trong tuần | `1` = Thứ 2 … `7` = Chủ nhật (ISO-8601) — **D-09 đã chốt** |
 | Phân trang | `page` (≥1, mặc định 1), `pageSize` (1–100, mặc định 20) |
 | Lỗi | `ProblemDetails` (RFC 7807) + `code` ổn định + `traceId` |
 | Correlation | `X-Correlation-Id` (tùy chọn) **[ĐỀ XUẤT]** |
@@ -54,7 +54,7 @@
 | Loại người gọi | Cơ chế | Ghi chú |
 |---|---|---|
 | Web (chủ hộp / người thân) | Cookie phiên (HttpOnly/Secure/SameSite) + CSRF token | **D-02 đã chốt (2026-10-29)** — không dùng Bearer/JWT |
-| ESP32 | Header `X-Device-Id: <Devices.DeviceId>` + `X-Device-Api-Key: <khóa thô>` | **[ĐỀ XUẤT — D-07]**; server so sánh hash constant-time |
+| ESP32 | Header `X-Device-Id: <Devices.DeviceId>` + `X-Device-Api-Key: <khóa thô>` | **D-07 đã chốt (2026-10-29)** — chi tiết §1.5 |
 | Anonymous | Chỉ các endpoint auth/register/login/forgot/reset/verify | Rate limited |
 
 - Endpoint người dùng **không** chấp nhận xác thực thiết bị; endpoint thiết bị **không** chấp nhận token người dùng.
@@ -79,13 +79,38 @@
 | `409 Conflict` | Xung đột trạng thái/trùng lặp nghiệp vụ |
 | `410 Gone` | Token/mã đã hết hạn hoặc không còn hiệu lực |
 | `413 Payload Too Large` | File vượt 5 MB |
-| `415 Unsupported Media Type` | File không thuộc JPEG/PNG/WebP |
+| `415 Unsupported Media Type` | File không thuộc JPEG/PNG/WebP, hoặc JSON endpoint nhận content-type không hỗ trợ |
 | `429 Too Many Requests` | Vượt rate limit (kèm `Retry-After`) |
 | `500 Internal Server Error` | Lỗi hệ thống (không lộ chi tiết) |
+
+### 1.4. Quy ước ProblemDetails (chốt tại P0-03)
+
+- Mọi lỗi trả `Content-Type: application/problem+json`; body theo RFC 7807 với các trường `type`, `title`, `status`, `code`, `traceId`; `detail` là thông điệp tiếng Việt an toàn để hiển thị; `errors` chỉ có với `VALIDATION_ERROR`.
+- `type` mặc định `about:blank`; `title` dùng reason phrase chuẩn của HTTP; `code` là hằng chuỗi tiếng Anh trong §14 — client xử lý theo `code`, không theo `detail`.
+- `traceId` lấy từ `Activity.Current?.TraceId` (fallback `HttpContext.TraceIdentifier`); log của request phải mang cùng giá trị. Không trả stack trace, tên bảng, câu SQL, secret, địa chỉ email hay dữ liệu sức khỏe.
+- `errors` dùng key là tên field `camelCase` trong JSON, value là mảng thông điệp; một field có thể có nhiều lỗi.
+- JSON không parse được, sai kiểu, thiếu field bắt buộc → `400 VALIDATION_ERROR`.
+- Thiếu/sai xác thực người dùng → `401 UNAUTHORIZED`; thiếu/sai xác thực thiết bị → `401 DEVICE_UNAUTHORIZED`; cả hai dùng cùng một thông điệp cho mọi trường hợp sai.
+- Thiếu/sai CSRF token trên request ghi → `400 CSRF_INVALID`.
+- `403 FORBIDDEN` cho đã xác thực nhưng thiếu quyền; khi hợp đồng yêu cầu giấu tồn tại thì trả `404` với code tương ứng (`DEVICE_NOT_FOUND`, `SCHEDULE_NOT_FOUND`, …).
+- `429 RATE_LIMITED` bắt buộc kèm header `Retry-After` (đơn vị giây).
+- `500 INTERNAL_ERROR`: body chỉ có `code`, `traceId` và thông điệp chung; chi tiết chỉ ghi log nội bộ.
+- Lỗi do framework sinh ra (route không tồn tại, content-type không hỗ trợ) cũng phải đi qua middleware để cùng shape: route không tồn tại → `404 NOT_FOUND`; JSON endpoint nhận content-type không hỗ trợ → `415 UNSUPPORTED_MEDIA_TYPE` (upload ảnh vẫn dùng `415 FILE_TYPE_NOT_ALLOWED`).
+
+### 1.5. Xác thực thiết bị — D-07 (chốt 2026-10-29)
+
+- `Devices.DeviceId`: định danh do server sinh khi provision, **không phải** `SerialNumber`; 1–100 ký tự ASCII (`A–Z a–z 0–9 _ -`), không chứa secret.
+- `DeviceApiKey`: 32 byte ngẫu nhiên từ CSPRNG, mã hóa base64url **không padding** (43 ký tự); chỉ hiển thị một lần khi provision.
+- Server chỉ lưu `HMAC-SHA256(pepper, key)` dạng base64 trong `Devices.DeviceApiKeyHash`; pepper nằm trong secret store, không nằm trong repo/CSDL. So sánh bằng `CryptographicOperations.FixedTimeEquals` sau khi tra theo `DeviceId`.
+- Thiếu/sai một trong hai header, hoặc `DeviceId` không tồn tại → cùng `401 DEVICE_UNAUTHORIZED`, không tiết lộ thiết bị có tồn tại.
+- Endpoint thiết bị chỉ chấp nhận cơ chế này; endpoint người dùng không chấp nhận header thiết bị và ngược lại.
+- Không log header/khóa; nếu log request thì phải che giá trị nhạy cảm.
 
 ---
 
 ## 2. Danh sách endpoint
+
+> Danh sách dưới đây là **đầy đủ cho MVP**; không thêm endpoint ngoài danh sách khi chưa cập nhật đồng bộ 4 tài liệu. Các endpoint #1–#11 và #17–#22 đã chốt cấu trúc cho Phase 1–2; các endpoint còn lại đã có shape nhưng payload có thể phụ thuộc TBD ghi tại §15.
 
 ### 2.1. API cho Web (người dùng)
 
@@ -275,11 +300,13 @@ D-02 đã chốt cookie session; hợp đồng không có endpoint refresh/JWT v
 
 - **Auth:** Người dùng đã đăng nhập + `EmailVerified=true` · **Task:** P2-04
 
-**Request** — nội dung quét từ QR (payload **[TBD-D08]**):
+**Request** — nội dung quét từ QR (D-08 đã chốt):
 
 ```json
-{ "code": "PAIR-7F3K-9Q2M" }
+{ "code": "7F3K-9Q2M" }
 ```
+
+**Định dạng mã (D-08):** 8 ký tự Crockford Base32 (`0–9`, `A–Z` trừ `I`, `L`, `O`, `U`) = 40 bit; server chuẩn hóa `trim` → uppercase → bỏ `-`/khoảng trắng trước khi băm. Mã có hạn **15 phút**, dùng một lần, lưu `HMAC-SHA256(pepper, mã chuẩn hóa)`. QR chứa `{"v":1,"code":"<mã 8 ký tự>"}` — không chứa `DeviceApiKey`, serial hay URL. Nhãn in có thể hiển thị dạng `XXXX-XXXX`; giá trị lưu và so khớp luôn là mã 8 ký tự đã chuẩn hóa.
 
 **Response `200`**
 
@@ -741,14 +768,15 @@ Query: `deviceId` (bắt buộc), `unreadOnly` (mặc định `false`), `page`, 
 
 <a id="device-api"></a>
 
-**Header bắt buộc cho cả 3 endpoint**
+**Header bắt buộc cho cả 3 endpoint (D-07)**
 
 ```
-X-Device-Id: SMB-000123
-X-Device-Api-Key: <khóa-thô-lưu-trong-thiết-bị>
+X-Device-Id: SMB-D7K2M9QX
+X-Device-Api-Key: <khóa-thô-32-byte-base64url-lưu-trong-thiết-bị>
 ```
 
-- Sai/thiếu → `401 DEVICE_UNAUTHORIZED`.
+- `X-Device-Id` là `Devices.DeviceId` (định danh do server cấp), **không phải** `SerialNumber`.
+- Sai/thiếu → `401 DEVICE_UNAUTHORIZED` (xem §1.5).
 - Mọi thời gian gửi lên dùng UTC ISO 8601.
 
 ### 9.1. `POST /api/device/heartbeat`
@@ -911,19 +939,25 @@ X-Device-Api-Key: <khóa-thô-lưu-trong-thiết-bị>
 }
 ```
 
-### 10.2. Enum
+### 10.2. Enum — D-09 (chốt 2026-10-29)
 
-| Enum | Giá trị **[ĐỀ XUẤT — D-09]** | Ghi chú |
+<a id="enums"></a>
+
+| Enum / trường | Giá trị | Ghi chú |
 |---|---|---|
-| `DoseStatus` | `Pending`, `Confirmed`, `Overdue`, `Unknown` | Lưu chuỗi; nhãn UI: Chờ xác nhận / Đã mở / Quá hạn / Không thể xác nhận |
-| `PairingState` | `Unpaired`, `Paired` | Heartbeat |
+| `DoseStatus` | `Pending`, `Confirmed`, `Overdue`, `Unknown` | Lưu `nvarchar(30)`; nhãn UI: Chờ xác nhận / Đã mở / Quá hạn / Không thể xác nhận |
+| `PairingState` | `Unpaired`, `Paired` | Chỉ có trong response heartbeat, không lưu CSDL |
 | `AlertType` | `OverdueUnconfirmed`, `UnconfirmedOffline` | Lưu `nvarchar(40)` |
 | `DeviceEventType` | `LidOpened`, `LidClosed` | Chỉ `LidOpened` được ghép dose |
-| `InvitationStatus` | `Pending`, `Accepted`, `Revoked`, `Expired` | |
-| `RelationshipStatus` | `Active`, `Revoked` | |
-| `EmailDeliveryStatus` | `Pending`, `Sent`, `Failed`, `Exhausted` | Nội bộ, không public API |
+| `InvitationStatus` | `Pending`, `Accepted`, `Revoked`, `Expired` | Lưu `nvarchar(30)`; trả trong DTO lời mời dạng chuỗi |
+| `RelationshipStatus` | `Active`, `Revoked` | Lưu `nvarchar(30)`; trả trong DTO quan hệ dạng chuỗi |
+| `EmailDeliveryStatus` | `Pending`, `Sent`, `Failed`, `Exhausted` | Lưu `nvarchar(30)`; nội bộ, không xuất hiện trong DTO public |
+| `AlertRecipient.Channel` | `Email` | `nvarchar(20)` + check constraint; MVP chỉ có email |
+| `ScheduleDay.DayOfWeek` | `1`–`7` | `1` = Thứ 2 … `7` = Chủ nhật (ISO-8601) |
 
-> Mọi giá trị enum phải khớp schema `nvarchar(30–40)` trong HTML và được chốt tại `P0-03` trước khi code.
+- Giá trị lưu đúng nguyên văn PascalCase như bảng trên; EF map bằng `HasConversion<string>()`; check constraint tương ứng nằm trong migration `InitialSchema` (P0-02).
+- Thêm/đổi giá trị enum hoặc ý nghĩa trạng thái = thay đổi hợp đồng: cập nhật đồng bộ API_CONTRACT, PLAN, TASKS, AGENTS và migration trước khi code.
+- Không có giá trị nào mang nghĩa "đã uống"; xem §10.4.
 
 ### 10.3. `PagedResult<T>`
 
@@ -993,7 +1027,9 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 |---|---|---|
 | `email` | Bắt buộc, đúng định dạng, ≤ 320, trim/lowercase | `VALIDATION_ERROR` |
 | `password` | **[TBD-D14]** đề xuất ≥ 8, ≤ 128, có chữ + số | `VALIDATION_ERROR` |
-| `pairing code` | **[TBD-D08]** đúng định dạng, chưa dùng, chưa hết hạn | `PAIRING_CODE_INVALID` / `PAIRING_CODE_USED` / `PAIRING_CODE_EXPIRED` |
+| `pairing code` | 8 ký tự Crockford Base32 sau chuẩn hóa; chưa dùng; chưa quá 15 phút (D-08) | `PAIRING_CODE_INVALID` / `PAIRING_CODE_USED` / `PAIRING_CODE_EXPIRED` |
+| Header thiết bị | `X-Device-Id` 1–100 ký tự; `X-Device-Api-Key` base64url 43 ký tự; cả hai bắt buộc | `DEVICE_UNAUTHORIZED` |
+| CSRF token | Bắt buộc với mọi request ghi của người dùng (cookie session); thiếu/sai bị từ chối | `CSRF_INVALID` |
 | `compartmentSlot` | Số nguyên 1–3, thuộc đúng thiết bị | `COMPARTMENT_INVALID` |
 | `timeOfDay` | `HH:mm`, 00:00–23:59 | `VALIDATION_ERROR` |
 | `daysOfWeek` | 1–7, không trùng, ≥ 1 phần tử | `VALIDATION_ERROR` |
@@ -1042,8 +1078,8 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 | Code | HTTP | Ý nghĩa |
 |---|---|---|
 | `VALIDATION_ERROR` | 400 | Dữ liệu không hợp lệ (kèm `errors`) |
-| `UNAUTHORIZED` | 401 | Thiếu xác thực |
-| `TOKEN_INVALID` | 400/401 | Token sai/đã dùng |
+| `UNAUTHORIZED` | 401 | Thiếu/sai/hết hạn xác thực người dùng |
+| `TOKEN_INVALID` | 400 | Token sai/đã dùng (401 chỉ dùng `UNAUTHORIZED`) |
 | `TOKEN_EXPIRED` | 410 | Token hết hạn |
 | `INVALID_CREDENTIALS` | 401 | Sai email/mật khẩu |
 | `EMAIL_NOT_VERIFIED` | 403 | Chưa xác minh email |
@@ -1077,9 +1113,14 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 | `FILE_TYPE_NOT_ALLOWED` | 415 | Không phải ảnh cho phép |
 | `IMAGE_INVALID` | 400 | Ảnh hỏng |
 | `IMAGE_NOT_FOUND` | 404 | Ảnh không tồn tại/đã xóa |
-| `RATE_LIMITED` | 429 | Vượt ngưỡng |
+| `CSRF_INVALID` | 400 | Thiếu/sai CSRF token trên request ghi |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | JSON endpoint nhận content-type không hỗ trợ |
+| `RATE_LIMITED` | 429 | Vượt ngưỡng (bắt buộc kèm `Retry-After`) |
 | `CONFLICT` | 409 | Xung đột chung |
 | `INTERNAL_ERROR` | 500 | Lỗi hệ thống |
+
+- Mã không có trong bảng này không được dùng; mã mới phải được thêm vào đây trước khi code.
+- `EVENT_TIME_INVALID` / `EVENT_TYPE_INVALID` là mã của **từng phần tử** trong batch; HTTP tổng vẫn là `200`.
 
 ---
 
@@ -1094,9 +1135,9 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 | D-03 | Email provider | Toàn bộ luồng email | P5-03 |
 | D-04 | Lưu file local hay blob | `/api/prescriptions/*` | P6-01 |
 | D-05 | Công cụ provision thiết bị | Không public API | P2-02 |
-| D-07 | Header xác thực thiết bị | `/api/device/*` | P2-06 |
-| D-08 | Định dạng pairing code, payload QR, hạn dùng | `/api/devices/pair` | P2-02, P2-03 |
-| D-09 | Giá trị enum & `daysOfWeek` quy ước | Nhiều endpoint | P0-03 |
+| D-07 | Header xác thực thiết bị | `/api/device/*` | **Đã chốt 2026-10-29: `X-Device-Id` + `X-Device-Api-Key`; khóa 32 byte base64url; lưu HMAC+pepper; so sánh constant-time (P0-03)** |
+| D-08 | Định dạng pairing code, payload QR, hạn dùng | `/api/devices/pair` | **Đã chốt 2026-10-29: 8 ký tự Crockford Base32; TTL 15 phút; QR `{"v":1,"code":"<code>"}` (P0-03)** |
+| D-09 | Giá trị enum & `daysOfWeek` quy ước | Nhiều endpoint | **Đã chốt 2026-10-29: enum §10.2; `daysOfWeek` ISO-8601; `Channel = Email` (P0-03)** |
 | D-10 | Nguồn timezone; một hay nhiều timezone/hộp; dashboard "hôm nay" nhóm theo timezone nào | `/api/schedules`, dashboard | P3-01, P3-06 |
 | D-11 | Horizon/tần suất sinh dose | `/api/dashboard`, history | P3-03 |
 | D-12 | Ngưỡng online/offline | `/api/devices/mine`, dashboard, alerts | P4-04 |
@@ -1121,7 +1162,7 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 
 - Tên endpoint ở trên có thể được điều chỉnh khi triển khai, nhưng phải cập nhật đồng thời [PLAN.md](PLAN.md), [TASKS.md](TASKS.md) và tài liệu này.
 - Mọi endpoint người dùng phải kiểm tra quyền theo hộp theo §11, kể cả endpoint đọc.
-- Mọi endpoint thiết bị phải xác thực `DeviceId + DeviceApiKey`; không chấp nhận token người dùng.
+- Mọi endpoint thiết bị phải xác thực `DeviceId + DeviceApiKey` qua header `X-Device-Id` + `X-Device-Api-Key` (D-07); `X-Device-Id` là `Devices.DeviceId`, không phải `SerialNumber`; không chấp nhận token người dùng.
 - Không endpoint nào được trả `DeviceApiKey`, hash, pairing code thô hoặc đường dẫn vật lý.
 - Nội dung hiển thị/email phải theo [AGENTS.md](AGENTS.md) §2.2: "đã mở/đã xác nhận", không "đã uống".
 - `ScheduleVersion` là **cấp thiết bị**, tăng khi tạo/sửa/xóa mềm bất kỳ lịch; `timeZoneId` thuộc từng lịch.

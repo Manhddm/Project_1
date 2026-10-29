@@ -48,6 +48,6 @@
 - Toàn bộ FK dùng `DeleteBehavior.Restrict`: dữ liệu nghiệp vụ là append-only/xóa mềm, không xóa dây chuyền.
 - `EmailDelivery.LockedUntil` là bổ sung kỹ thuật bắt buộc bởi [AGENTS.md](AGENTS.md) §4.4 (claim/lease, an toàn nhiều worker); HTML không liệt kê cột này.
 - `DoseInstances` unique `(ScheduleId, ScheduledAt)` là [ĐỀ XUẤT KỸ THUẬT] để job sinh dose chạy lặp/song song không nhân đôi (AGENTS §9.1).
-- Giá trị enum đang theo [API_CONTRACT.md §10.2](API_CONTRACT.md#102-enum) — vẫn là **[ĐỀ XUẤT — D-09]** cho tới khi P0-03 chốt; migration phải cập nhật nếu giá trị thay đổi.
+- Giá trị enum theo [API_CONTRACT.md §10.2](API_CONTRACT.md#enums) — **D-09 đã chốt 2026-10-29**; check constraint trong `InitialSchema` khớp đúng các giá trị này.
 - `Devices.LastSeenAt` cho phép NULL = chưa từng thấy/offline (AGENTS §3.3).
 - `PrescriptionImages` không có cột nhị phân; file nằm ngoài CSDL (D-04).

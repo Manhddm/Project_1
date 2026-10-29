@@ -53,6 +53,9 @@ dotnet ef migrations add <Name> --project src/SmartMedBox.Infrastructure --start
 |---|---|
 | D-01 | Giao diện Razor/MVC nằm trong project `SmartMedBox.Api` |
 | D-02 | Xác thực Web bằng cookie session + CSRF; không dùng bảng `RefreshTokens` |
+| D-07 | Thiết bị xác thực bằng header `X-Device-Id` + `X-Device-Api-Key`; khóa 32 byte base64url, lưu HMAC+pepper |
+| D-08 | Pairing code 8 ký tự Crockford Base32, hạn 15 phút; QR chỉ chứa `{"v":1,"code":"..."}` |
+| D-09 | Enum dùng chuỗi PascalCase cố định (API_CONTRACT §10.2); `daysOfWeek` 1–7 theo ISO-8601 |
 
 ## Tài liệu
 

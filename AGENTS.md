@@ -1,8 +1,8 @@
 # AGENTS.md — Hộp thuốc thông minh (MVP)
 
-> Phiên bản: 1.2 · Ngày: 2026-10-29 · Trạng thái: **Đang triển khai (P0-01 DONE)**
+> Phiên bản: 1.3 · Ngày: 2026-10-29 · Trạng thái: **Đang triển khai (P0-01, P0-02, P0-03 DONE)**
 >
-> Bản 1.2 chốt D-01 (Razor trong project Api) và D-02 (cookie session + CSRF); cập nhật cấu trúc `src/` + `tests/`.
+> Bản 1.3 chốt D-07 (header/khóa thiết bị), D-08 (pairing code + QR) và D-09 (enum) tại P0-03; cập nhật §4.5, §7. Bản 1.2 chốt D-01 (Razor trong project Api) và D-02 (cookie session + CSRF); cập nhật cấu trúc `src/` + `tests/`.
 >
 > Tài liệu này ràng buộc mọi AI Coding Agent và thành viên tham gia codebase.
 > Nguồn yêu cầu gốc: `Hop-thuoc-thong-minh.html` (bản đặc tả MVP). Ba tài liệu đi kèm: [PLAN.md](PLAN.md), [TASKS.md](TASKS.md), [API_CONTRACT.md](API_CONTRACT.md).
@@ -159,7 +159,7 @@ Quy tắc:
 
 ### 4.5. Ghép QR
 
-- Pairing code: một lần, có hạn **[TBD-D08]**, server lưu hash có pepper/HMAC; dùng xong vô hiệu ngay.
+- Pairing code: 8 ký tự Crockford Base32, hạn **15 phút**, dùng một lần (D-08 đã chốt); server lưu hash có pepper/HMAC; dùng xong vô hiệu ngay.
 - QR **không** chứa `DeviceApiKey`, không chứa thông tin nhạy cảm khác.
 - Ghép trong một transaction: kiểm tra người dùng đã xác minh email, chưa sở hữu hộp, thiết bị chưa có chủ, mã hợp lệ → gán chủ + đánh dấu mã đã dùng.
 - Endpoint ghép phải rate-limit chống brute-force mã ngắn; mã sai/không tồn tại trả cùng lỗi.
@@ -246,8 +246,8 @@ Quy tắc cấu trúc:
 ## 7. Bảo mật
 
 - Mật khẩu: hash bằng thuật toán chuẩn (ASP.NET Core `PasswordHasher` hoặc tương đương). Không lưu/không log mật khẩu, token, `DeviceApiKey`, pairing code dạng rõ.
-- Token (verify email, reset password, refresh, invitation): lưu **hash**, có hạn, dùng một lần khi thuộc luồng bảo mật.
-- `DeviceApiKey`: sinh ngẫu nhiên đủ mạnh, chỉ hiển thị một lần khi provision, server lưu hash, so sánh constant-time.
+- Token (verify email, reset password, invitation): lưu **hash**, có hạn, dùng một lần khi thuộc luồng bảo mật.
+- `DeviceApiKey`: 32 byte từ CSPRNG, mã hóa base64url; chỉ hiển thị một lần khi provision; server lưu `HMAC-SHA256(pepper, key)`, so sánh constant-time. Header: `X-Device-Id` + `X-Device-Api-Key` (D-07 đã chốt).
 - QR chỉ chứa pairing code.
 - Phân quyền kiểm tra ở **Server** cho mọi endpoint, theo từng hộp; trả 403 thay vì 404 gây lộ tồn tại khi phù hợp.
 - Rate limit: lời mời người thân (bắt buộc), endpoint auth (đề xuất), **pair và accept token (bắt buộc)**; trả 429 kèm `Retry-After`. Ngưỡng cụ thể **[TBD-D14]**.
