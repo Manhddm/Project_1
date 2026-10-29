@@ -1,8 +1,8 @@
 # TASKS.md — Checklist theo dõi tiến độ MVP Hộp thuốc thông minh
 
-> Phiên bản: 1.3 · Ngày: 2026-10-29 · Trạng thái: **P0-01 DONE, P0-02…TODO; QA baseline: 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN — MVP NOT ACCEPTED**
+> Phiên bản: 1.4 · Ngày: 2026-10-29 · Trạng thái: **P0-01, P0-02 DONE; QA baseline: 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN — MVP NOT ACCEPTED**
 >
-> Bản 1.2 ghi nhận P0-01 hoàn thành và chốt D-01/D-02. Bản 1.3 cập nhật kết quả QA thực tế ngày 2026-10-29 (chỉ 1/82 test chạy được), không AC nào đạt.
+> Bản 1.2 ghi nhận P0-01 hoàn thành và chốt D-01/D-02. Bản 1.3 cập nhật kết quả QA thực tế. Bản 1.4 ghi nhận P0-02 (schema + migration `InitialSchema`) hoàn thành.
 >
 > Nguồn kế hoạch: [PLAN.md](PLAN.md) · Hợp đồng API: [API_CONTRACT.md](API_CONTRACT.md) · Quy tắc làm việc: [AGENTS.md](AGENTS.md) · Kế hoạch kiểm thử: [TEST_PLAN.md](TEST_PLAN.md) · Báo cáo kiểm thử: [TEST_REPORT.md](TEST_REPORT.md)
 
@@ -62,7 +62,7 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 | ID | Task | Trạng thái | Phụ thuộc | Bằng chứng / Test | Ghi chú |
 |---|---|---|---|---|---|
 | [P0-01](PLAN.md#p0-01) | Chốt cấu trúc repo & skeleton | `DONE` | — | `dotnet build`: 0 warning/0 error · `HomePageTests.Get_Root_ReturnsHtmlPage` 1/1 pass · Kestrel: `GET /` 200 `text/html`, `GET /css/site.css` 200 | D-01 = Razor trong Api; D-02 = cookie + CSRF; scaffold MVC cũ đã xóa; xem §14 |
-| [P0-02](PLAN.md#p0-02) | Mô hình dữ liệu & migration đầu | `TODO` | P0-01 | | 17 bảng (bỏ `RefreshTokens` do D-02) + 4 index nóng + check enum |
+| [P0-02](PLAN.md#p0-02) | Mô hình dữ liệu & migration đầu | `DONE` | P0-01 | `20261029070908_InitialSchema` apply trên LocalDB trống · `SchemaConstraintTests` 21/21 pass · full suite 22/22 · build 0W/0E | 17 bảng (bỏ `RefreshTokens` do D-02) + 4 index nóng + check enum; ERD [docs/erd.md](docs/erd.md), SQL [docs/schema.sql](docs/schema.sql); D-09 vẫn tạm theo API_CONTRACT §10.2 |
 | [P0-03](PLAN.md#p0-03) | Chốt hợp đồng API & enum | `TODO` | P0-02 | | D-07/08/09 |
 | [P0-04](PLAN.md#p0-04) | Hạ tầng cắt ngang (ProblemDetails, clock, email, storage) | `TODO` | P0-01 | | D-03/D-04 |
 | [P0-05](PLAN.md#p0-05) | Secret & vệ sinh repo | `TODO` | P0-01 | | |
@@ -256,6 +256,7 @@ Kết luận: **MVP NOT ACCEPTED**. Nguyên nhân gốc: P0-02…P7-06 chưa tri
 | 2026-10-29 | Khởi tạo tài liệu | — → hoàn tất kế hoạch | 4 tài liệu PLAN/TASKS/API_CONTRACT/AGENTS | Agent |
 | 2026-10-29 | P0-01 | `TODO` → `DONE` | Build 0W/0E; `HomePageTests.Get_Root_ReturnsHtmlPage` 1/1; HTTP 200 HTML + CSS 200; D-01/D-02 chốt trong PLAN §3 | Agent |
 | 2026-10-29 | QA baseline | — → 1 PASS / 82 | `dotnet build` 0W/0E; `dotnet test` 1/1 pass; `GET /api/users/me` & `/api/schedules` → 404; [TEST_PLAN.md](TEST_PLAN.md) + [TEST_REPORT.md](TEST_REPORT.md); 0/12 AC đạt | QA Automation |
+| 2026-10-29 | P0-02 | `TODO` → `DONE` | Migration `20261029070908_InitialSchema` apply trên DB LocalDB trống; `SchemaConstraintTests` 21/21; full suite 22/22; build 0W/0E; [docs/erd.md](docs/erd.md) + [docs/schema.sql](docs/schema.sql) | Agent |
 
 ---
 
@@ -281,10 +282,10 @@ Kết luận: **MVP NOT ACCEPTED**. Nguyên nhân gốc: P0-02…P7-06 chưa tri
 
 ### P0-02 · Schema & migration
 
-- [ ] P0-02a — 18 entity + quan hệ 1–n/n–n + `DbContext`
-- [ ] P0-02b — unique/check/filtered index + 4 index đường đọc nóng
-- [ ] P0-02c — migration `InitialSchema` + test apply trên SQL Server trống
-- [ ] P0-02d — test ràng buộc (slot 1–3, owner unique, event unique, alert recipient unique)
+- [x] P0-02a — 17 entity + quan hệ 1–n/n–n + `DbContext`
+- [x] P0-02b — unique/check/filtered index + 4 index đường đọc nóng
+- [x] P0-02c — migration `InitialSchema` + test apply trên SQL Server trống
+- [x] P0-02d — test ràng buộc (slot 1–3, owner unique, event unique, alert recipient unique)
 
 ### P2-09 · Lời mời người thân
 

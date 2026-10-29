@@ -39,6 +39,14 @@ Mặc định: `https://localhost:7249` và `http://localhost:5189` (xem `src/Sm
 dotnet test
 ```
 
+Integration test dùng SQL Server thật: mỗi lần chạy tạo database tạm `SmartMedBox_Test_<guid>` trên `(localdb)\MSSQLLocalDB`, apply migration rồi xóa sau khi xong. Trỏ sang instance khác bằng biến môi trường `SMARTMEDBOX_TEST_SERVER` (connection string tới database `master`).
+
+Lệnh EF (design-time) dùng `SMARTMEDBOX_CONNECTION`, mặc định LocalDB `SmartMedBox`:
+
+```bash
+dotnet ef migrations add <Name> --project src/SmartMedBox.Infrastructure --startup-project src/SmartMedBox.Infrastructure --output-dir Data/Migrations
+```
+
 ## Quyết định kỹ thuật đã chốt
 
 | Mã | Quyết định |
