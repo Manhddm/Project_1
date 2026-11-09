@@ -6,3 +6,5 @@ public sealed record PrescriptionImageDto(
     string ContentType,
     int SizeBytes,
     DateTimeOffset UploadedAt);
+
+public sealed record PrescriptionImageListDto(IReadOnlyList<PrescriptionImageDto> Items);

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 using SmartMedBox.Api.Contracts;
 using SmartMedBox.Api.Errors;
 using SmartMedBox.Api.Security;
@@ -14,6 +15,49 @@ public sealed class PrescriptionImagesController(PrescriptionImageService images
 {
     // Chừa chỗ cho header multipart; body lớn hơn bị cắt khi đọc thay vì buffer hết.
     private const long MaxRequestBytes = PrescriptionImageService.MaxBytes + 64 * 1024;
+
+    [HttpGet]
+    public async Task<IActionResult> List(CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Problem(StatusCodes.Status401Unauthorized, ErrorCodes.Unauthorized);
+        }
+
+        var (outcome, items) = await images.ListAsync(userId, cancellationToken);
+        return outcome switch
+        {
+            PrescriptionImageAccessOutcome.Ok => Ok(new PrescriptionImageListDto(
+                items!.Select(ToDto).ToArray())),
+            PrescriptionImageAccessOutcome.Forbidden => Problem(StatusCodes.Status403Forbidden, ErrorCodes.Forbidden),
+            _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, null),
+        };
+    }
+
+    [HttpGet("{id:guid}/content")]
+    public async Task<IActionResult> Content(Guid id, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Problem(StatusCodes.Status401Unauthorized, ErrorCodes.Unauthorized);
+        }
+
+        var (outcome, content) = await images.OpenContentAsync(userId, id, cancellationToken);
+        if (outcome == PrescriptionImageAccessOutcome.Forbidden)
+        {
+            return Problem(StatusCodes.Status403Forbidden, ErrorCodes.Forbidden);
+        }
+
+        if (outcome == PrescriptionImageAccessOutcome.NotFound)
+        {
+            return Problem(StatusCodes.Status404NotFound, ErrorCodes.ImageNotFound);
+        }
+
+        Response.Headers.CacheControl = "private, no-store";
+        Response.Headers.XContentTypeOptions = "nosniff";
+        Response.Headers.ContentDisposition = BuildContentDisposition(content!.OriginalFileName);
+        return File(content.Content, content.ContentType);
+    }
 
     [HttpPost]
     [RequestSizeLimit(MaxRequestBytes)]
@@ -76,4 +120,22 @@ public sealed class PrescriptionImagesController(PrescriptionImageService images
     }
 
     private IActionResult Problem(int status, string code) => ApiProblemResults.Create(HttpContext, status, code);
+
+    private static PrescriptionImageDto ToDto(PrescriptionImageView image) =>
+        new(image.Id, image.OriginalFileName, image.ContentType, image.SizeBytes, image.UploadedAt);
+
+    private static string BuildContentDisposition(string fileName)
+    {
+        var safeName = Path.GetFileName(fileName.Replace('\0', '_'));
+        safeName = new string(safeName.Select(character =>
+            char.IsControl(character) || character is '"' or '\\' or '/' or ';' ? '_' : character).ToArray());
+        if (string.IsNullOrWhiteSpace(safeName))
+        {
+            safeName = "image";
+        }
+
+        var disposition = new ContentDispositionHeaderValue("inline");
+        disposition.SetHttpFileName(safeName);
+        return disposition.ToString();
+    }
 }

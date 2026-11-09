@@ -16,12 +16,21 @@ public enum PrescriptionUploadOutcome
     Invalid,
 }
 
+public enum PrescriptionImageAccessOutcome
+{
+    Ok,
+    Forbidden,
+    NotFound,
+}
+
 public sealed record PrescriptionImageView(
     Guid Id,
     string OriginalFileName,
     string ContentType,
     int SizeBytes,
     DateTimeOffset UploadedAt);
+
+public sealed record PrescriptionImageContent(Stream Content, string ContentType, string OriginalFileName);
 
 /// <summary>
 /// Ảnh đơn thuốc (P6-*): CSDL chỉ giữ metadata + storage key, nội dung nằm trong <see cref="IFileStorage"/> private
@@ -39,6 +48,58 @@ public sealed class PrescriptionImageService(AppDbContext db, IFileStorage stora
             .Where(x => x.OwnerUserId == userId)
             .Select(x => (Guid?)x.Id)
             .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<(PrescriptionImageAccessOutcome Outcome, IReadOnlyList<PrescriptionImageView>? Images)> ListAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (await GetOwnedDeviceIdAsync(userId, cancellationToken) is null)
+        {
+            return (PrescriptionImageAccessOutcome.Forbidden, null);
+        }
+
+        var images = await db.PrescriptionImages
+            .AsNoTracking()
+            .Where(x => x.OwnerUserId == userId && !x.IsDeleted)
+            .OrderByDescending(x => x.UploadedAt)
+            .Select(x => new PrescriptionImageView(
+                x.Id,
+                x.OriginalFileName,
+                x.ContentType,
+                x.SizeBytes,
+                x.UploadedAt))
+            .ToListAsync(cancellationToken);
+
+        return (PrescriptionImageAccessOutcome.Ok, images);
+    }
+
+    public async Task<(PrescriptionImageAccessOutcome Outcome, PrescriptionImageContent? Content)> OpenContentAsync(
+        Guid userId,
+        Guid imageId,
+        CancellationToken cancellationToken = default)
+    {
+        if (await GetOwnedDeviceIdAsync(userId, cancellationToken) is null)
+        {
+            return (PrescriptionImageAccessOutcome.Forbidden, null);
+        }
+
+        var image = await db.PrescriptionImages
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == imageId && x.OwnerUserId == userId && !x.IsDeleted, cancellationToken);
+        if (image is null)
+        {
+            return (PrescriptionImageAccessOutcome.NotFound, null);
+        }
+
+        var content = await storage.OpenReadAsync(image.StorageKey, cancellationToken);
+        if (content is null)
+        {
+            return (PrescriptionImageAccessOutcome.NotFound, null);
+        }
+
+        return (PrescriptionImageAccessOutcome.Ok,
+            new PrescriptionImageContent(content, image.ContentType, image.OriginalFileName));
+    }
 
     public async Task<(PrescriptionUploadOutcome Outcome, PrescriptionImageView? Image)> UploadAsync(
         Guid userId,
