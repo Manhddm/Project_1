@@ -55,3 +55,6 @@ appsettings.*.local.json
 *.p12
 *.key
 *.pem
+
+## Claude Code agent worktrees
+.claude/worktrees/
