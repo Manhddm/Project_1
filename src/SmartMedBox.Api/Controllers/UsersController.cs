@@ -1,9 +1,9 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartMedBox.Api.Contracts;
 using SmartMedBox.Api.Errors;
+using SmartMedBox.Api.Security;
 using SmartMedBox.Infrastructure.Data;
 
 namespace SmartMedBox.Api.Controllers;
@@ -16,7 +16,7 @@ public sealed class UsersController(AppDbContext db) : ControllerBase
     [HttpGet("me")]
     public async Task<IActionResult> GetMe(CancellationToken cancellationToken)
     {
-        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        if (!User.TryGetUserId(out var userId))
         {
             return ApiProblemResults.Create(HttpContext, StatusCodes.Status401Unauthorized, ErrorCodes.Unauthorized);
         }

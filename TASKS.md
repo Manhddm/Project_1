@@ -1,6 +1,8 @@
 # TASKS.md — Checklist theo dõi tiến độ MVP Hộp thuốc thông minh
 
-> Phiên bản: 2.6 · Ngày: 2026-10-29 · Trạng thái: **P0-01…P0-05, P1-01…P1-04, P2-01, P2-08, P3-01, P5-01 DONE; QA baseline: 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN — MVP NOT ACCEPTED**
+> Phiên bản: 2.7 · Ngày: 2026-11-09 · Trạng thái: **P0-01…P0-05, P1-01…P1-05, P2-01, P2-08, P3-01, P5-01 DONE; QA baseline: 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN — MVP NOT ACCEPTED**
+>
+> Bản 2.7 ghi nhận P1-05 hoàn thành: resolver vai trò theo hộp (Owner / Relative Active / None) + policy Read/Manage; người ngoài và hộp không tồn tại cùng 403; quyền chỉ dựa trên phiên đăng nhập.
 >
 > Bản 2.6 ghi nhận P1-04 hoàn thành: quên/đặt lại mật khẩu dùng `AuthTokens` (`PasswordReset`, TTL 24 giờ), thu hồi toàn bộ phiên sau khi đổi; chuỗi AC-12 (API) có test đầu-cuối.
 >
@@ -83,7 +85,7 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 | [P1-02](PLAN.md#p1-02) | Đăng ký & xác minh email | `DONE` | P1-01, P0-04 | `RegistrationApiTests` 12/12 (đăng ký tạo user chưa xác minh + email sink; trùng email khác hoa/thường → 409 `EMAIL_TAKEN`; mật khẩu yếu 3 case + email sai → 400 `VALIDATION_ERROR` kèm `errors`; token dùng lại/không tồn tại → 400 `TOKEN_INVALID`; hết hạn → 410 `TOKEN_EXPIRED`; resend ẩn danh → 202 không gửi mail; resend vô hiệu token cũ; response không chứa mật khẩu/token) · `PasswordPolicyTests` 12/12 · `SecureTokenTests` 2/2 · `HmacTokenHasherTests` 7/7 · `SchemaConstraintTests` 36/36 (thêm unique `TokenHash`, check `Purpose`) · migration `20261029092143_AddAuthTokens` · full suite 149/149 (83 unit + 66 integration) · build 0W/0E | Bảng `AuthTokens` [ĐỀ XUẤT KỸ THUẬT] (HTML không có); chỉ lưu `HMAC-SHA256(pepper, token)`, token 32 byte CSPRNG base64url dùng một lần. **Pepper bắt buộc** `Security:TokenPepper` ≥ 32 ký tự, không có mặc định — API dừng khởi động nếu thiếu. TTL 24 giờ theo D-14. Resend vô hiệu token cũ là [ĐỀ XUẤT]. Gửi email qua `IEmailSender` hiện có (D-03 vẫn TBD); rate limit login/resend thuộc P1-06 |
 | [P1-03](PLAN.md#p1-03) | Đăng nhập/đăng xuất/hồ sơ | `DONE` | P1-01, P0-03 | `AuthApiTests` 6/6 (thiếu CSRF → 400 `CSRF_INVALID`; sai mật khẩu vs email không tồn tại cùng 401; chưa xác minh → 403; login đặt cookie `Secure`/`HttpOnly`/`SameSite=Lax` + `GET /api/users/me` 200; logout thu hồi session phía server, cookie cũ hết hiệu lực; ẩn danh → 401) · `InMemoryUserSessionStoreTests` 6/6 · full suite 80/80 (43 unit + 37 integration) · build 0W/0E | D-02: cookie + CSRF, không refresh/JWT. Production chưa có endpoint phát CSRF token cho API client — UI-01 (Razor) sẽ render token trong form. **D-27 mới**: session lưu in-memory + TTL 8 giờ là [ĐỀ XUẤT], chưa chốt durable/multi-instance |
 | [P1-04](PLAN.md#p1-04) | Quên & đặt lại mật khẩu | `DONE` | P1-01, P0-04 | `PasswordResetApiTests` 10/10 (forgot email lạ/không hợp lệ → 202 không gửi; token đúng purpose/TTL 24h; forgot lần 2 vô hiệu token cũ; reset đúng → mật khẩu cũ hết hiệu lực, mật khẩu mới đăng nhập được, phiên cũ bị thu hồi, token dùng lại → `TOKEN_INVALID`; mật khẩu yếu → `VALIDATION_ERROR` và token còn dùng được; token lạ → 400; token hết hạn → 410; chuỗi AC-12 đăng ký→xác minh→đăng nhập→quên→đặt lại→đăng nhập) · `InMemoryUserSessionStoreTests` thêm 1 test `RevokeAllForUser` 7/7 · full suite 160/160 (84 unit + 76 integration) · build 0W/0E | Dùng lại `AuthTokens` (`Purpose=PasswordReset`), không cần migration mới. Chỉ token mới nhất còn hiệu lực; đổi mật khẩu tiêu thụ token trong transaction + thu hồi toàn bộ session (thêm `IUserSessionStore.RevokeAllForUser`). Forgot luôn 202 kể cả email sai định dạng (không liệt kê tài khoản). Rate limit thuộc P1-06 |
-| [P1-05](PLAN.md#p1-05) | Phân quyền theo hộp (owner/relative) | `TODO` | P1-03 | | Hoàn thiện sau P2-08 |
+| [P1-05](PLAN.md#p1-05) | Phân quyền theo hộp (owner/relative) | `DONE` | P1-03 | `DeviceAccessPolicyTests` 6/6 (ma trận Owner/Relative/None × Read/Manage) · `DeviceAccessTests` 5/5 (resolver trên SQL Server: owner, relative Active, relative Revoked, người ngoài, hộp khác/chưa ghép/không tồn tại → None; HTTP: owner Read+Manage 200, relative Read 200/Manage 403, revoked/người ngoài 403 `FORBIDDEN`, ẩn danh 401; `userId` trong query bị bỏ qua; hộp không tồn tại và hộp người khác cùng 403) · full suite 171/171 (90 unit + 81 integration) · build 0W/0E | `DeviceAccessPolicy` (Domain) + `DeviceAccessService` (Infrastructure, scoped) + `CurrentUser.TryGetUserId` (Api). Không cần migration. Người ngoài/hộp không tồn tại/hộp chưa ghép đều 403 thống nhất (API_CONTRACT §11). Endpoint thật gắn kiểm tra khi triển khai (P2-05, P2-09, P3-02, P3-06, P5-05, P6-03); kiểm thử ma trận hiện qua probe controller trong test. [ĐỀ XUẤT] dùng service gọi trực tiếp thay vì ASP.NET authorization handler |
 | [P1-06](PLAN.md#p1-06) | Rate limiting & chống lạm dụng | `TODO` | P1-03 | | D-14 đã chốt: login 10/15 phút/IP, pair 5/phút/IP, invitation 10/ngày, accept 10/phút/IP; 429 + `Retry-After` |
 
 ---
@@ -274,6 +276,7 @@ Kết luận: **MVP NOT ACCEPTED**. Nguyên nhân gốc: P0-02…P7-06 chưa tri
 | 2026-10-29 | P5-01 | `TODO` → `DONE` | `SchemaConstraintTests` 4 test cảnh báo/recipient/delivery + retry; full suite 114/114 (62 unit + 52 integration); build 0W/0E; không cần migration mới | Agent |
 | 2026-10-29 | P1-02 | `TODO` → `DONE` | `RegistrationApiTests` 12/12; `PasswordPolicyTests` 12/12; `SecureTokenTests` 2/2; `HmacTokenHasherTests` 7/7; `SchemaConstraintTests` 36/36; migration `20261029092143_AddAuthTokens`; full suite 149/149 (83 unit + 66 integration); build 0W/0E; [README.md](README.md) hướng dẫn `Security:TokenPepper`; [docs/erd.md](docs/erd.md) + [docs/schema.sql](docs/schema.sql) cập nhật | Agent |
 | 2026-10-29 | P1-04 | `TODO` → `DONE` | `PasswordResetApiTests` 10/10 (gồm chuỗi AC-12 API); `InMemoryUserSessionStoreTests` 7/7 (`RevokeAllForUser`); full suite 160/160 (84 unit + 76 integration); build 0W/0E; không cần migration mới; [README.md](README.md) bổ sung endpoint quên/đặt lại | Agent |
+| 2026-11-09 | P1-05 | `TODO` → `DONE` | `DeviceAccessPolicyTests` 6/6; `DeviceAccessTests` 5/5; full suite 171/171 (90 unit + 81 integration); build 0W/0E; không cần migration mới | Agent |
 
 ---
 
@@ -359,6 +362,13 @@ Kết luận: **MVP NOT ACCEPTED**. Nguyên nhân gốc: P0-02…P7-06 chưa tri
 - [x] P1-04c — `IUserSessionStore.RevokeAllForUser` thu hồi mọi phiên sau khi đổi mật khẩu
 - [x] P1-04d — `POST /api/auth/forgot-password|reset-password` + `EmailTemplates.PasswordReset` tiếng Việt
 - [x] P1-04e — test tích hợp đầy đủ (202 trung tính, token một lần/hết hạn, thu hồi phiên) + chuỗi AC-12 mức API
+
+### P1-05 · Phân quyền theo hộp
+
+- [x] P1-05a — `DeviceAccessRole` + `DeviceAccessPolicy.Allows` (Read: Owner/Relative; Manage: chỉ Owner)
+- [x] P1-05b — `DeviceAccessService.GetRoleAsync/CanAsync`: owner theo `Devices.OwnerUserId`, relative theo `CareRelationships` `Active`; hộp chưa ghép/không tồn tại → None
+- [x] P1-05c — `CurrentUser.TryGetUserId` lấy userId từ cookie phiên; `UsersController` dùng lại
+- [x] P1-05d — test ma trận unit + integration SQL Server + HTTP (403 thống nhất, bỏ qua userId client gửi)
 
 ### P2-01 · Entity Devices / PairingCodes / Compartments
 

@@ -94,6 +94,7 @@ builder.Services.AddSingleton<IPasswordHasher, PasswordHasherService>();
 builder.Services.AddSingleton<IUserSessionStore, InMemoryUserSessionStore>();
 builder.Services.AddSingleton<ITokenHasher, HmacTokenHasher>();
 builder.Services.AddScoped<DeviceProvisioningService>();
+builder.Services.AddScoped<DeviceAccessService>();
 builder.Services.AddScoped<RegistrationService>();
 builder.Services.AddScoped<PasswordResetService>();
 
