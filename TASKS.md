@@ -6,6 +6,7 @@
 - Verification: `dotnet build Project_1.sln --no-restore /p:UseSharedCompilation=false` passes with 0 warnings and 0 errors; unit tests pass `154/154`.
 - Integration tests compile, but SQL Server LocalDB is unavailable in this environment (`Cannot create an automatic instance`), so integration/runtime acceptance remains unverified.
 - `P3-03`, `P4-03`, `P5-02`, `P5-03`, dashboard/history, firmware/simulator, and final MVP acceptance remain incomplete. No TBD decision was silently finalized.
+- Additional support code is present for alert evaluation/email delivery (`0629bd1`), but it is not wired as a hosted worker until the required offline/retry decisions are approved.
 
 > Phiên bản: 3.0 · Ngày: 2026-11-09 · Trạng thái: **P0-01…P0-05, P1-01…P1-06, P2-01, P2-02, P2-04…P2-10, P3-01, P4-01, P5-01, P6-01, P6-02, P7-04, UI-01 DONE; P2-03, P3-02, P4-02 IN_PROGRESS; QA baseline: 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN — MVP NOT ACCEPTED**
 >

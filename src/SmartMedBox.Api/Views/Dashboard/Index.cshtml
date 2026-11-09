@@ -1,0 +1,9 @@
+@{
+    ViewData["Title"] = "Tổng quan";
+}
+<section class="panel" data-dashboard-page>
+    <div class="page-heading"><div><p class="eyebrow">Theo dõi hộp thuốc</p><h1>Tổng quan</h1><p>Trạng thái hiển thị là dữ liệu đã nhận từ thiết bị. “Đã xác nhận” chỉ có nghĩa nắp đúng ngăn đã mở.</p></div></div>
+    <p id="dashboard-error" class="form-errors" role="alert" hidden></p>
+    <div id="dashboard-content"><p class="hint">Đang tải dữ liệu…</p></div>
+</section>
+@section Scripts { <script src="~/js/dashboard.js" asp-append-version="true"></script> }
