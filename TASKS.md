@@ -1,6 +1,8 @@
 # TASKS.md — Checklist theo dõi tiến độ MVP Hộp thuốc thông minh
 
-> Phiên bản: 2.9 · Ngày: 2026-11-09 · Trạng thái: **P0-01…P0-05, P1-01…P1-06, P2-01, P2-02, P2-06…P2-10, P3-01, P5-01, P7-04, UI-01 DONE; P2-03, P3-02 IN_PROGRESS; QA baseline: 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN — MVP NOT ACCEPTED**
+> Phiên bản: 3.0 · Ngày: 2026-11-09 · Trạng thái: **P0-01…P0-05, P1-01…P1-06, P2-01, P2-02, P2-04…P2-10, P3-01, P4-01, P5-01, P6-01, P6-02, P7-04, UI-01 DONE; P2-03, P3-02, P4-02 IN_PROGRESS; QA baseline: 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN — MVP NOT ACCEPTED**
+>
+> Bản 3.0 ghi nhận đợt song song 2 (3 subagent): P2-04, P2-05, P4-01, P6-01, P6-02 DONE; P4-02 IN_PROGRESS (chặn bởi D-26). Ghi nhận lệch hợp đồng "ảnh giải mã được".
 >
 > Bản 2.9 ghi nhận đợt song song (5 subagent, merge vào `main`): P2-02, P2-06, P2-07, P2-09, P2-10, P7-04, UI-01 DONE; P2-03 và P3-02 IN_PROGRESS (P3-02 chặn bởi D-23). Ghi nhận **D-29**, **D-30**, mâu thuẫn khóa rate limit accept, và lệch schema timestamp của lịch.
 >
@@ -101,8 +103,8 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 | [P2-01](PLAN.md#p2-01) | Entity Devices/PairingCodes/Compartments | `DONE` | P0-02 | `DeviceProvisioningTests` unit 7/7 (đúng 3 ngăn slot 1–3 tên Sáng/Trưa/Tối, owner NULL, trim, chặn rỗng/quá dài) · integration 2/2 (lưu device + đúng 3 ngăn; `DeviceId` trùng → không tạo ngăn cho lần lỗi) · full suite 89/89 · build 0W/0E | Entities + migration có từ `InitialSchema` (không cần migration mới). Bổ sung `DeviceProvisioning` (Domain) + `DeviceProvisioningService` (Infrastructure, một `SaveChanges` = một transaction), DI scoped. `DeviceApiKeyHash` chưa lộ ra API (chưa có endpoint) |
 | [P2-02](PLAN.md#p2-02) | Provision & sinh khóa thiết bị | `DONE` | P2-01, P0-05 | `PairingCodeTests` 17/17 · `DeviceApiKeyTests` 13/13 · `DeviceOnboardingTests` 4/4 (chỉ lưu hash, đúng 3 ngăn, serial trùng không để lại dữ liệu dở, mã mới làm hết hạn mã cũ, hộp đã ghép/không tồn tại → null) · smoke CLI trên LocalDB tạm (provision, issue-code, serial trùng exit 1, usage exit 2) · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit 1af6891 | CLI `tools/SmartMedBox.Provisioning` (`provision <serial>`, `issue-code <deviceId>`) qua `DeviceOnboardingService`; khóa 32 byte in một lần, chỉ lưu HMAC (`Security:TokenPepper`); mã Crockford 8 ký tự TTL 15 phút, chuẩn hóa I/L→1, O→0 [ĐỀ XUẤT]; audit không chứa secret. Chưa có test tự động cho CLI. **D-29 mới**: TTL 15 phút vs nhãn in sẵn |
 | [P2-03](PLAN.md#p2-03) | Payload QR & in nhãn | `IN_PROGRESS` | P2-02 | `PairingCode.QrPayload` → `{"v":1,"code":...}` + định dạng nhãn `XXXX-XXXX` (trong `PairingCodeTests`) · commit 1af6891 | Còn: sinh ảnh QR (cần chọn thư viện), mẫu nhãn, quy trình in, test quét mẫu; phụ thuộc D-20, D-29 |
-| [P2-04](PLAN.md#p2-04) | API ghép hộp atomic, một lần | `TODO` | P2-01, P2-02, P1-02, P1-05 | | AC-08, rate limit pair |
-| [P2-05](PLAN.md#p2-05) | API trạng thái hộp của tôi | `TODO` | P2-04 | | |
+| [P2-04](PLAN.md#p2-04) | API ghép hộp atomic, một lần | `DONE` | P2-01, P2-02, P1-02, P1-05 | `DevicePairingApiTests` 11/11 (thành công + audit; quét lại 409 `PAIRING_CODE_USED`; hết hạn 410; mã lạ/hỏng cùng 400; email chưa xác minh 403; đã có hộp 409; hộp đã có chủ 409; 4 request đồng thời cùng mã → đúng 1 thành công; một người ghép 3 hộp đồng thời → chỉ sở hữu 1; 429 + `Retry-After`; ẩn danh 401) · full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E · commit bae066f | `DeviceOwnershipService.PairAsync`: một transaction, cập nhật có điều kiện mã (`UsedAt IS NULL AND ExpiresAt > now`) + chủ (`OwnerUserId IS NULL`) + bắt unique violation; audit `DevicePaired` không chứa mã/hash; response không có key/hash/DeviceId. [ĐỀ XUẤT] thứ tự lỗi: EMAIL_NOT_VERIFIED → INVALID → USED → EXPIRED → USER_ALREADY_OWNS_DEVICE → DEVICE_ALREADY_PAIRED; `code` rỗng → `VALIDATION_ERROR` |
+| [P2-05](PLAN.md#p2-05) | API trạng thái hộp của tôi | `DONE` | P2-04 | `MyDeviceApiTests` 3/3 (owner thấy hộp + 3 ngăn, không có secret; relative/người ngoài 404 `DEVICE_NOT_FOUND`; ẩn danh 401) · full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E · commit c2f9984 | `isOnline` luôn `null` cho tới khi chốt D-12; trả `lastSeenAt` |
 | [P2-06](PLAN.md#p2-06) | Xác thực thiết bị | `DONE` | P2-02 | `DeviceAuthenticationTests` 4/4 (header hợp lệ; 7 ca thiếu/sai/không tồn tại cùng 401 `DEVICE_UNAUTHORIZED`; cookie người dùng không vào được endpoint thiết bị; header thiết bị không vào được endpoint người dùng) · `DeviceApiKeyTests` · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit 3a98f65 | Scheme `Device` riêng, so sánh constant-time, vẫn tính HMAC khi thiết bị không tồn tại; không log header. Chưa có test bắt log chứng minh header không bị ghi |
 | [P2-07](PLAN.md#p2-07) | Heartbeat Unpaired/Paired | `DONE` | P2-06 | `HeartbeatApiTests` 4/4 (Unpaired + cập nhật `LastSeenAt`; Paired kèm `scheduleVersion`; gọi lặp chỉ đổi `LastSeenAt`; sai khóa 401 không đụng `LastSeenAt`) · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit b5c20d2 | `POST /api/device/heartbeat` trả `pairingState`/`serverTimeUtc`/`scheduleVersion` (0 khi Unpaired)/`nextHeartbeatSeconds` = 60 (shortcut, gắn D-12/D-26). `firmwareVersion` chưa lưu (không có cột); `rtcTimeUtc` chưa dùng (D-26) |
 | [P2-08](PLAN.md#p2-08) | Entity CareRelationships/RelativeInvitations | `DONE` | P2-01, P1-01 | `RelativeInvitationTests` 3/3 (email chuẩn hóa trim/lowercase, chặn rỗng) · `SchemaConstraintTests` bổ sung: pending trùng sau chuẩn hóa bị chặn; revoked cho phép mời lại + giữ lịch sử; `ExpiresAt` NOT NULL; relationship revoke giữ lịch sử + tạo active mới · full suite 96/96 · build 0W/0E | Entities/migration có từ `InitialSchema`; bổ sung setter chuẩn hóa `InviteeEmail` trong entity. D-14 đã chốt sau task: hạn lời mời 7 ngày — áp `ExpiresAt` khi tạo invitation ở P2-09 |
@@ -128,8 +130,8 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 
 | ID | Task | Trạng thái | Phụ thuộc | Bằng chứng / Test | Ghi chú |
 |---|---|---|---|---|---|
-| [P4-01](PLAN.md#p4-01) | Entity DeviceEvents | `TODO` | P2-01 | | AC-05 |
-| [P4-02](PLAN.md#p4-02) | API batch sự kiện idempotent | `TODO` | P4-01, P2-06 | | AC-05 |
+| [P4-01](PLAN.md#p4-01) | Entity DeviceEvents | `DONE` | P2-01 | Schema có từ `InitialSchema` (UNIQUE `(DeviceId, EventId)`, IX `(DeviceId, OccurredAt)`, CK `EventType`) + `SchemaConstraintTests` sẵn có · `DeviceEventRulesTests` 12/12 · full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E · commit 03a8f66 | `DeviceEventRules`: eventId không rỗng ≤ 100 ký tự, eventType đúng `LidOpened`/`LidClosed`, batch ≤ 100. Không cần migration |
+| [P4-02](PLAN.md#p4-02) | API batch sự kiện idempotent | `IN_PROGRESS` | P4-01, P2-06 | `DeviceEventsBatchApiTests` 9/9 (gửi 3 lần → 1 hàng/eventId, lần sau `Duplicate`; batch xáo cho cùng kết quả, giữ `occurredAt`; lẫn hợp lệ/không hợp lệ → hợp lệ được lưu, lỗi báo từng phần tử; cookie/thiếu header 401; hộp chưa ghép 409; 0/101 phần tử 400; 2 batch đồng thời giống nhau → không trùng, không 500) · full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E · commit 009744d | Code + test xong; **chặn DONE bởi D-26** (chưa có ngưỡng từ chối event tương lai/quá cũ — đánh dấu `[TBD-D26]` trong code). Không ghép với dose (P4-03), không cập nhật `LastSeenAt` (chỉ heartbeat). [ĐỀ XUẤT]: thiếu `occurredAt`/sai slot → lỗi từng phần tử; `batchId` nhận nhưng không lưu; không audit |
 | [P4-03](PLAN.md#p4-03) | Ghép sự kiện với lần uống | `TODO` | P4-02, P3-05 | | AC-02, AC-03, D-24 |
 | [P4-04](PLAN.md#p4-04) | Kết nối & trạng thái Unknown | `TODO` | P3-05, P2-07, P4-03 | | AC-06, D-12; đánh giá tại DeadlineAt |
 | [P4-05](PLAN.md#p4-05) | Đặc tả hợp đồng firmware | `TODO` | P0-03, P3-04, P4-02 | | Bàn giao HW track, D-25, D-26 |
@@ -152,8 +154,8 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 
 | ID | Task | Trạng thái | Phụ thuộc | Bằng chứng / Test | Ghi chú |
 |---|---|---|---|---|---|
-| [P6-01](PLAN.md#p6-01) | Entity ảnh & storage private | `TODO` | P0-04, P1-05 | | D-04 |
-| [P6-02](PLAN.md#p6-02) | Upload validation (5 MB, magic bytes, EXIF) | `TODO` | P6-01 | | AC-11, D-16 |
+| [P6-01](PLAN.md#p6-01) | Entity ảnh & storage private | `DONE` | P0-04, P1-05 | `PrescriptionStorageTests` 3/3 (không có cột binary; thư mục lưu ngoài WebRoot, file không truy cập được qua URL tĩnh → 404; chỉ owner có hộp) · full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E · commit ba4f715 | `PrescriptionImageService`; giữ `LocalFileStorage` private (D-04 vẫn TBD, theo [ĐỀ XUẤT]); không cần migration |
+| [P6-02](PLAN.md#p6-02) | Upload validation (5 MB, magic bytes, EXIF) | `DONE` | P6-01 | `ImageSanitizerTests` 7/7 (magic bytes bỏ qua phần mở rộng; JPEG bỏ EXIF GPS/XMP/COM/APP sau scan/dữ liệu sau EOI; PNG chỉ giữ chunk ảnh; WebP bỏ EXIF/XMP + sửa header; file hỏng → invalid) · `PrescriptionUploadApiTests` 9/9 (owner 201; relative/người ngoài 403; ẩn danh 401; .exe đổi tên 415; JPEG hỏng 400; 5,242,881 B và 6 MB → 413; đúng 5 MB → 201; file lưu không còn EXIF/GPS; audit không có tên file; DB lỗi không để file mồ côi) · full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E · commit fb6b464 | Loại metadata bằng cách viết lại JPEG/PNG/WebP theo allow-list, không thêm thư viện; `contentType` theo magic bytes; `sizeBytes` = sau khi loại metadata. **Lệch hợp đồng**: API_CONTRACT §8/§12 yêu cầu ảnh "giải mã được" — hiện chỉ kiểm cấu trúc, không giải mã pixel (cần duyệt thư viện ảnh hoặc chấp nhận). JPEG bỏ ICC (APP2) có thể lệch màu nhẹ. D-16 vẫn TBD (không chống trùng) |
 | [P6-03](PLAN.md#p6-03) | Xem/tải ảnh có kiểm tra quyền | `TODO` | P6-02 | | AC-11 |
 | [P6-04](PLAN.md#p6-04) | Xóa mềm & audit ảnh | `TODO` | P6-03 | | D-16 |
 | [P6-05](PLAN.md#p6-05) | Đối chiếu file & runbook backup | `TODO` | P6-01 | | |
@@ -218,7 +220,7 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 | AC-05 | Gửi lại batch không tạo kết quả trùng | `NOT_RUN` | TC-SYNC-003, TC-SYNC-004, TC-SYNC-012 — chưa có P4-02 |
 | AC-06 | Offline: Web/email dùng Unknown/"không thể xác nhận" | `NOT_RUN` | TC-ALERT-002, TC-ALERT-008, TC-UI-002 — chưa có P4-04/P5-02/UI-04 |
 | AC-07 | Người thân xem được nhưng bị chặn sửa cấu hình/ảnh | `NOT_RUN` | TC-AUTHZ-002…TC-AUTHZ-006 — chưa có endpoint để phân quyền |
-| AC-08 | QR dùng một lần; quét lại bị từ chối; không lộ DeviceApiKey | `NOT_RUN` | TC-PAIR-005, TC-PAIR-007, TC-PAIR-009 — chưa có P2-02…P2-04 |
+| AC-08 | QR dùng một lần; quét lại bị từ chối; không lộ DeviceApiKey | `NOT_RUN` (phần API có test: `DevicePairingApiTests`; chờ UI-02 + quét QR thật) | TC-PAIR-005, TC-PAIR-007, TC-PAIR-009 — chưa có P2-02…P2-04 |
 | AC-09 | Email quá hạn đủ chủ + mọi relative Accepted; retry không nhân đôi | `NOT_RUN` | TC-ALERT-003, TC-ALERT-006 — chưa có P5-02/P5-03, D-03 chưa chốt |
 | AC-10 | Snapshot không đổi ngược khi sửa lịch/thuốc | `NOT_RUN` | TC-SCHED-006, TC-DOSE-001, TC-DOSE-008 — chưa có P0-02/P3-03 |
 | AC-11 | Ảnh sai loại/quá 5 MB bị từ chối; loại EXIF; file ngoài DB | `NOT_RUN` | TC-IMG-002…TC-IMG-007 — chưa có P6-*, D-04 chưa chốt |
@@ -291,6 +293,12 @@ Kết luận: **MVP NOT ACCEPTED**. Nguyên nhân gốc: P0-02…P7-06 chưa tri
 | 2026-11-09 | P2-03 | `TODO` → `IN_PROGRESS` | commit 1af6891; full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E | Subagent + Agent review |
 | 2026-11-09 | P2-06 | `TODO` → `DONE` | commit 3a98f65; full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E | Subagent + Agent review |
 | 2026-11-09 | P2-07 | `TODO` → `DONE` | commit b5c20d2; full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P4-01 | `TODO` → `DONE` | commit 03a8f66; full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P4-02 | `TODO` → `IN_PROGRESS` | commit 009744d; full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P2-04 | `TODO` → `DONE` | commit bae066f; full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P2-05 | `TODO` → `DONE` | commit c2f9984; full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P6-01 | `TODO` → `DONE` | commit ba4f715; full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P6-02 | `TODO` → `DONE` | commit fb6b464; full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E | Subagent + Agent review |
 
 ---
 
@@ -421,9 +429,9 @@ Kết luận: **MVP NOT ACCEPTED**. Nguyên nhân gốc: P0-02…P7-06 chưa tri
 
 ### P4-02 · Nhận batch sự kiện
 
-- [ ] P4-02a — auth thiết bị + validation batch/phần tử + giới hạn
-- [ ] P4-02b — xử lý theo thứ tự `occurredAt`/`eventId`, idempotent
-- [ ] P4-02c — kết quả từng phần tử + phần tử lỗi không rollback phần tử hợp lệ
+- [x] P4-02a — auth thiết bị + validation batch/phần tử + giới hạn
+- [x] P4-02b — xử lý theo thứ tự `occurredAt`/`eventId`, idempotent
+- [x] P4-02c — kết quả từng phần tử + phần tử lỗi không rollback phần tử hợp lệ
 - [ ] P4-02d — test gửi lặp 3 lần, batch xáo thứ tự, event tương lai
 
 ### P5-01 · Entity Alerts / AlertRecipients / EmailDeliveries
