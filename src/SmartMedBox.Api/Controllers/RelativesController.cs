@@ -13,8 +13,44 @@ namespace SmartMedBox.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/relatives")]
-public sealed class RelativesController(RelativeInvitationService invitations, IClock clock) : ControllerBase
+public sealed class RelativesController(
+    RelativeInvitationService invitations,
+    CareRelationshipService relationships,
+    IClock clock) : ControllerBase
 {
+    [HttpGet("relationships")]
+    public async Task<IActionResult> ListRelationships([FromQuery] Guid? deviceId, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Fail(StatusCodes.Status401Unauthorized, ErrorCodes.Unauthorized);
+        }
+
+        var items = await relationships.ListAsync(userId, deviceId, cancellationToken);
+        return items is null
+            ? Fail(StatusCodes.Status403Forbidden, ErrorCodes.Forbidden)
+            : Ok(new ItemsResponse<RelationshipDto>(items
+                .Select(x => new RelationshipDto(
+                    x.Id, x.DeviceId, x.SerialNumber, x.RelativeUserId, x.RelativeEmail, x.Status.ToString(), x.AcceptedAt))
+                .ToList()));
+    }
+
+    [HttpDelete("relationships/{id:guid}")]
+    public async Task<IActionResult> DeleteRelationship(Guid id, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Fail(StatusCodes.Status401Unauthorized, ErrorCodes.Unauthorized);
+        }
+
+        return await relationships.RevokeAsync(userId, id, cancellationToken) switch
+        {
+            RelationshipOutcome.Success => NoContent(),
+            RelationshipOutcome.Forbidden => Fail(StatusCodes.Status403Forbidden, ErrorCodes.Forbidden),
+            _ => Fail(StatusCodes.Status404NotFound, ErrorCodes.RelationshipNotFound),
+        };
+    }
+
     [HttpPost("invitations")]
     [EnableRateLimiting(RateLimitPolicies.InvitationCreate)]
     public async Task<IActionResult> CreateInvitation(

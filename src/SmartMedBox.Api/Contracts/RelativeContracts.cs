@@ -20,4 +20,13 @@ public sealed class AcceptInvitationRequest
     public string Token { get; set; } = string.Empty;
 }
 
+public sealed record RelationshipDto(
+    Guid Id,
+    Guid DeviceId,
+    string SerialNumber,
+    Guid RelativeUserId,
+    string RelativeEmail,
+    string Status,
+    DateTimeOffset AcceptedAt);
+
 public sealed record AcceptInvitationResponse(Guid RelationshipId, Guid DeviceId, string Status, DateTimeOffset AcceptedAt);
