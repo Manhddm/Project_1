@@ -104,6 +104,7 @@ builder.Services.AddSingleton<ITokenHasher, HmacTokenHasher>();
 builder.Services.AddScoped<DeviceProvisioningService>();
 builder.Services.AddScoped<DeviceAccessService>();
 builder.Services.AddScoped<DeviceEventIngestionService>();
+builder.Services.AddScoped<DeviceEventMatchingService>();
 builder.Services.AddScoped<DeviceOwnershipService>();
 builder.Services.AddScoped<RegistrationService>();
 builder.Services.AddScoped<PasswordResetService>();

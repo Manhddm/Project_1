@@ -32,7 +32,7 @@ public sealed record DoseTransitionResult(
     DoseTransitionReason Reason,
     DateTimeOffset? ConfirmedAt);
 
-public sealed class DoseStateMachine(IClock clock, IDoseDeadlineConnectivityPolicy connectivityPolicy)
+public sealed class DoseStateMachine(IClock clock, IDoseDeadlineConnectivityPolicy? connectivityPolicy = null)
 {
     public DoseTransitionResult ApplyLidOpened(
         DoseInstance dose,
@@ -83,6 +83,11 @@ public sealed class DoseStateMachine(IClock clock, IDoseDeadlineConnectivityPoli
         if (clock.UtcNow <= dose.DeadlineAt)
         {
             return Result(dose, previousStatus, DoseTransitionOutcome.NoChange, DoseTransitionReason.DeadlineNotReached);
+        }
+
+        if (connectivityPolicy is null)
+        {
+            throw new InvalidOperationException("A deadline connectivity policy is required to evaluate a dose deadline.");
         }
 
         var online = connectivityPolicy.WasOnlineAtDeadline(dose.DeadlineAt, lastSeenAt);

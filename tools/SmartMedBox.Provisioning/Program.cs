@@ -13,7 +13,7 @@ using SystemClock = SmartMedBox.Infrastructure.Time.SystemClock;
 if (args is ["reconcile-files"])
 {
     await RunReconciliationAsync();
-    return;
+    return 0;
 }
 
 if (args.Length != 2 || args[0] is not ("provision" or "issue-code"))

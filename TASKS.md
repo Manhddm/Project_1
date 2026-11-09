@@ -1,5 +1,12 @@
 # TASKS.md — Checklist theo dõi tiến độ MVP Hộp thuốc thông minh
 
+## Implementation update — 2026-11-10
+
+- `main` includes prescription UI (`UI-06`), device pairing/status UI (`UI-02`), file reconciliation/runbook (`P6-05`), dose generation wiring, and dose state-machine support (`P3-05`).
+- Verification: `dotnet build Project_1.sln --no-restore /p:UseSharedCompilation=false` passes with 0 warnings and 0 errors; unit tests pass `154/154`.
+- Integration tests compile, but SQL Server LocalDB is unavailable in this environment (`Cannot create an automatic instance`), so integration/runtime acceptance remains unverified.
+- `P3-03`, `P4-03`, `P5-02`, `P5-03`, dashboard/history, firmware/simulator, and final MVP acceptance remain incomplete. No TBD decision was silently finalized.
+
 > Phiên bản: 3.0 · Ngày: 2026-11-09 · Trạng thái: **P0-01…P0-05, P1-01…P1-06, P2-01, P2-02, P2-04…P2-10, P3-01, P4-01, P5-01, P6-01, P6-02, P7-04, UI-01 DONE; P2-03, P3-02, P4-02 IN_PROGRESS; QA baseline: 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN — MVP NOT ACCEPTED**
 >
 > Bản 3.0 ghi nhận đợt song song 2 (3 subagent): P2-04, P2-05, P4-01, P6-01, P6-02 DONE; P4-02 IN_PROGRESS (chặn bởi D-26). Ghi nhận lệch hợp đồng "ảnh giải mã được".

@@ -24,13 +24,18 @@ public enum DeviceEventRejection
 
 public sealed record DeviceEventInput(string EventId, int? CompartmentSlot, string? EventType, DateTimeOffset? OccurredAt);
 
-public sealed record DeviceEventResult(string EventId, DeviceEventResultStatus Status, DeviceEventRejection? Rejection = null);
+public sealed record DeviceEventResult(
+    string EventId,
+    DeviceEventResultStatus Status,
+    DeviceEventRejection? Rejection = null,
+    Guid? MatchedDoseInstanceId = null,
+    DoseStatus? DoseStatus = null);
 
 /// <summary>
 /// Nhận batch sự kiện thiết bị (P4-02, API_CONTRACT §9.3). Append-only, idempotent theo <c>UNIQUE (DeviceId, EventId)</c>;
 /// mỗi event hợp lệ được ghi độc lập nên phần tử lỗi không rollback phần tử khác. Không ghép dose (P4-03).
 /// </summary>
-public sealed class DeviceEventIngestionService(AppDbContext db, IClock clock)
+public sealed class DeviceEventIngestionService(AppDbContext db, IClock clock, DeviceEventMatchingService matching)
 {
     /// <summary>Trả null nếu thiết bị chưa có chủ. Kết quả theo đúng thứ tự mảng đầu vào, một phần tử cho mỗi event.</summary>
     public async Task<IReadOnlyList<DeviceEventResult>?> IngestAsync(
@@ -73,7 +78,21 @@ public sealed class DeviceEventIngestionService(AppDbContext db, IClock clock)
 
             if (!existing.Add(input.EventId))
             {
-                results[index] = new DeviceEventResult(input.EventId, DeviceEventResultStatus.Duplicate);
+                var duplicate = await db.DeviceEvents.AsNoTracking()
+                    .Where(x => x.DeviceId == deviceKey && x.EventId == input.EventId)
+                    .Select(x => new { x.MatchedDoseInstanceId })
+                    .SingleAsync(cancellationToken);
+                var duplicateStatus = duplicate.MatchedDoseInstanceId is { } duplicateDoseId
+                    ? await db.DoseInstances.AsNoTracking()
+                        .Where(x => x.Id == duplicateDoseId)
+                        .Select(x => (DoseStatus?)x.Status)
+                        .SingleOrDefaultAsync(cancellationToken)
+                    : null;
+                results[index] = new DeviceEventResult(
+                    input.EventId,
+                    DeviceEventResultStatus.Duplicate,
+                    MatchedDoseInstanceId: duplicate.MatchedDoseInstanceId,
+                    DoseStatus: duplicateStatus);
                 continue;
             }
 
@@ -97,12 +116,18 @@ public sealed class DeviceEventIngestionService(AppDbContext db, IClock clock)
                 // Batch song song đã ghi cùng (DeviceId, EventId) giữa lúc kiểm tra và lúc ghi.
                 status = DeviceEventResultStatus.Duplicate;
             }
-            finally
+            if (status == DeviceEventResultStatus.Accepted)
             {
-                db.Entry(deviceEvent).State = EntityState.Detached;
+                var match = await matching.MatchAsync(deviceKey, input.EventId, cancellationToken);
+                results[index] = new DeviceEventResult(
+                    input.EventId,
+                    status,
+                    MatchedDoseInstanceId: match.DoseInstanceId,
+                    DoseStatus: match.DoseStatus);
             }
 
-            results[index] = new DeviceEventResult(input.EventId, status);
+            db.Entry(deviceEvent).State = EntityState.Detached;
+            results[index] ??= new DeviceEventResult(input.EventId, status);
         }
 
         return results!;

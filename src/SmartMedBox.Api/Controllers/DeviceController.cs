@@ -82,7 +82,12 @@ public sealed class DeviceController(AppDbContext db, IClock clock) : Controller
 
         return Ok(new DeviceEventBatchResponse(
             clock.UtcNow,
-            results.Select(x => new DeviceEventResultDto(x.EventId, x.Status.ToString(), RejectionCode(x.Rejection), null, null))
+            results.Select(x => new DeviceEventResultDto(
+                x.EventId,
+                x.Status.ToString(),
+                RejectionCode(x.Rejection),
+                x.MatchedDoseInstanceId,
+                x.DoseStatus?.ToString()))
                 .ToList()));
     }
 
