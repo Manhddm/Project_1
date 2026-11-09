@@ -57,4 +57,5 @@ appsettings.*.local.json
 *.pem
 
 ## Claude Code agent worktrees
+.claude/
 .claude/worktrees/
