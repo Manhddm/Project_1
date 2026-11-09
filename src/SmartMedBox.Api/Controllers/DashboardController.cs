@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartMedBox.Api.Errors;
 using SmartMedBox.Api.Security;
+using SmartMedBox.Domain.Abstractions;
 using SmartMedBox.Domain.Devices;
 using SmartMedBox.Domain.Enums;
 using SmartMedBox.Infrastructure.Data;
@@ -13,7 +14,7 @@ namespace SmartMedBox.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api")]
-public sealed class DashboardController(AppDbContext db, DeviceAccessService access) : ControllerBase
+public sealed class DashboardController(AppDbContext db, DeviceAccessService access, IClock clock) : ControllerBase
 {
     [HttpGet("dashboard")]
     public async Task<IActionResult> Dashboard(Guid deviceId, CancellationToken cancellationToken)
@@ -25,16 +26,39 @@ public sealed class DashboardController(AppDbContext db, DeviceAccessService acc
             .Select(x => new { x.Id, x.SerialNumber, x.LastSeenAt, x.ScheduleVersion }).SingleOrDefaultAsync(cancellationToken);
         if (device is null) return NotFoundProblem(ErrorCodes.DeviceNotFound);
 
-        var now = DateTimeOffset.UtcNow;
+        var now = clock.UtcNow;
         var doses = await LoadDosesAsync(deviceId, now.AddDays(-2), now.AddDays(2), cancellationToken);
-        var today = doses.Where(x => x.LocalDate == DateOnly.FromDateTime(DateTime.UtcNow)).ToList();
+        var today = doses.Where(x => x.LocalDate == DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, TimeZoneInfo.FindSystemTimeZoneById(x.TimeZoneId)).DateTime)).ToList();
         return Ok(new
         {
             device = new { device.Id, device.SerialNumber, isOnline = (bool?)null, device.LastSeenAt, device.ScheduleVersion },
-            today = new { date = DateOnly.FromDateTime(DateTime.UtcNow), timeZoneId = "Asia/Ho_Chi_Minh", doses = today },
+            today = new { date = DateOnly.FromDateTime(now.DateTime), timeZoneId = "per-dose", doses = today },
             nextDose = doses.Where(x => x.ScheduledAt >= now && x.Status == DoseStatus.Pending).OrderBy(x => x.ScheduledAt).FirstOrDefault(),
             alerts = new { unreadCount = 0, latest = Array.Empty<object>() },
         });
+    }
+
+    [HttpPost("alerts/{id:guid}/read")]
+    public async Task<IActionResult> MarkAlertRead(Guid id, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
+
+        var recipientId = await (from recipient in db.AlertRecipients
+                                 join alert in db.Alerts on recipient.AlertId equals alert.Id
+                                 join dose in db.DoseInstances on alert.DoseInstanceId equals dose.Id
+                                 where alert.Id == id && recipient.RecipientUserId == userId
+                                 select (Guid?)recipient.Id).SingleOrDefaultAsync(cancellationToken);
+        if (recipientId is null) return NotFoundProblem(ErrorCodes.AlertNotFound);
+
+        var readAt = clock.UtcNow;
+        await db.AlertRecipients
+            .Where(x => x.Id == recipientId && x.ReadAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.ReadAt, readAt), cancellationToken);
+        var storedReadAt = await db.AlertRecipients
+            .Where(x => x.Id == recipientId)
+            .Select(x => x.ReadAt)
+            .SingleAsync(cancellationToken);
+        return Ok(new { readAt = storedReadAt });
     }
 
     [HttpGet("dose-history")]
