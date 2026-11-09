@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using SmartMedBox.Api.Errors;
+using SmartMedBox.Api.Observability;
 using SmartMedBox.Api.Routing;
 using SmartMedBox.Api.Security;
 using SmartMedBox.Domain.Abstractions;
@@ -88,6 +89,8 @@ builder.Services.AddHttpLogging(options =>
         | HttpLoggingFields.Duration;
 });
 
+builder.Services.AddAppHealthChecks();
+
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddSingleton<IEmailSender, FileEmailSender>();
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
@@ -117,6 +120,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
 var app = builder.Build();
 
+app.UseTraceIdLogScope();
 app.UseExceptionHandler();
 
 if (!app.Environment.IsDevelopment())
@@ -134,6 +138,7 @@ app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
 
+app.MapAppHealthChecks();
 app.MapControllerRoute(
     name: "root",
     pattern: "",
