@@ -5,14 +5,23 @@ using Microsoft.Extensions.Options;
 using SmartMedBox.Domain.Devices;
 using SmartMedBox.Infrastructure.Data;
 using SmartMedBox.Infrastructure.Devices;
+using SmartMedBox.Infrastructure.Prescriptions;
 using SmartMedBox.Infrastructure.Security;
+using SmartMedBox.Infrastructure.Storage;
 using SystemClock = SmartMedBox.Infrastructure.Time.SystemClock;
+
+if (args is ["reconcile-files"])
+{
+    await RunReconciliationAsync();
+    return;
+}
 
 if (args.Length != 2 || args[0] is not ("provision" or "issue-code"))
 {
     Console.Error.WriteLine("Usage:");
     Console.Error.WriteLine("  provision <serialNumber>   Tạo thiết bị + 3 ngăn + DeviceApiKey + pairing code");
     Console.Error.WriteLine("  issue-code <deviceId>      Cấp pairing code mới cho thiết bị chưa ghép (vô hiệu mã cũ)");
+    Console.Error.WriteLine("  reconcile-files            Đối chiếu metadata ảnh với private storage (read-only)");
     return 2;
 }
 
@@ -64,4 +73,39 @@ static void PrintCode(IssuedPairingCode code)
     Console.WriteLine($"PairingCode:   {PairingCode.FormatForLabel(code.Code)}");
     Console.WriteLine($"ExpiresAtUtc:  {code.ExpiresAt.UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}");
     Console.WriteLine($"QrPayload:     {PairingCode.QrPayload(code.Code)}");
+}
+
+static async Task RunReconciliationAsync()
+{
+    var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__Default");
+    var storageRoot = Environment.GetEnvironmentVariable("FileStorage__RootPath");
+    if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(storageRoot))
+    {
+        Console.Error.WriteLine("ConnectionStrings__Default and FileStorage__RootPath are required.");
+        Environment.ExitCode = 2;
+        return;
+    }
+
+    await using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(connectionString).Options);
+    var service = new PrescriptionFileReconciliationService(
+        db,
+        new LocalFileStorage(Options.Create(new FileStorageOptions { RootPath = storageRoot })));
+    var report = await service.ReconcileAsync();
+
+    Console.WriteLine($"Metadata records: {report.MetadataCount}");
+    Console.WriteLine($"Storage files:    {report.StorageFileCount}");
+    PrintFindings("Missing files", report.MissingFiles);
+    PrintFindings("Orphan files", report.OrphanFiles);
+    PrintFindings("Invalid files", report.InvalidStorageFiles);
+    PrintFindings("Duplicate keys", report.DuplicateMetadataKeys);
+    Environment.ExitCode = report.IsClean ? 0 : 1;
+}
+
+static void PrintFindings(string label, IReadOnlyList<string> findings)
+{
+    Console.WriteLine($"{label}:       {findings.Count}");
+    foreach (var finding in findings)
+    {
+        Console.WriteLine($"  - {finding}");
+    }
 }
