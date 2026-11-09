@@ -21,6 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\SmartMedBox.UnitTests\TestDoubles\FakeClock.cs" Link="TestSupport\FakeClock.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\SmartMedBox.Api\SmartMedBox.Api.csproj" />
     <ProjectReference Include="..\..\src\SmartMedBox.Domain\SmartMedBox.Domain.csproj" />
     <ProjectReference Include="..\..\src\SmartMedBox.Infrastructure\SmartMedBox.Infrastructure.csproj" />

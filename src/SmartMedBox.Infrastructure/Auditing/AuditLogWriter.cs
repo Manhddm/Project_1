@@ -13,6 +13,8 @@ public static class AuditActions
     public const string InvitationRevoked = "relative.invitation.revoked";
     public const string InvitationAccepted = "relative.invitation.accepted";
     public const string RelationshipRevoked = "relative.relationship.revoked";
+    public const string DeviceProvisioned = "DeviceProvisioned";
+    public const string PairingCodeIssued = "PairingCodeIssued";
 }
 
 public static class AuditLogWriter

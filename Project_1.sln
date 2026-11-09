@@ -14,6 +14,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartMedBox.UnitTests", "te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartMedBox.IntegrationTests", "tests\SmartMedBox.IntegrationTests\SmartMedBox.IntegrationTests.csproj", "{7B71DF9D-1D2E-4C76-B82E-28A232E6FAF1}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{07C2787E-EAC7-C090-1BA3-A61EC2A24D84}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartMedBox.Provisioning", "tools\SmartMedBox.Provisioning\SmartMedBox.Provisioning.csproj", "{150CD63C-4458-4F5F-9C18-61AE06EE8952}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -84,6 +88,18 @@ Global
 		{7B71DF9D-1D2E-4C76-B82E-28A232E6FAF1}.Release|x64.Build.0 = Release|Any CPU
 		{7B71DF9D-1D2E-4C76-B82E-28A232E6FAF1}.Release|x86.ActiveCfg = Release|Any CPU
 		{7B71DF9D-1D2E-4C76-B82E-28A232E6FAF1}.Release|x86.Build.0 = Release|Any CPU
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952}.Debug|x64.Build.0 = Debug|Any CPU
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952}.Debug|x86.Build.0 = Debug|Any CPU
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952}.Release|Any CPU.Build.0 = Release|Any CPU
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952}.Release|x64.ActiveCfg = Release|Any CPU
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952}.Release|x64.Build.0 = Release|Any CPU
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952}.Release|x86.ActiveCfg = Release|Any CPU
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -94,5 +110,6 @@ Global
 		{EB73FB5E-DE4A-4A1F-857D-A8804D973436} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{92F24A9C-3486-4EE9-9148-5D83A94DBFDB} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{7B71DF9D-1D2E-4C76-B82E-28A232E6FAF1} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{150CD63C-4458-4F5F-9C18-61AE06EE8952} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 	EndGlobalSection
 EndGlobal
