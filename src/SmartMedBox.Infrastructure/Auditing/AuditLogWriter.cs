@@ -9,6 +9,9 @@ public static class AuditActions
     public const string ScheduleCreated = "ScheduleCreated";
     public const string ScheduleUpdated = "ScheduleUpdated";
     public const string ScheduleDeleted = "ScheduleDeleted";
+    public const string InvitationCreated = "relative.invitation.created";
+    public const string InvitationRevoked = "relative.invitation.revoked";
+    public const string InvitationAccepted = "relative.invitation.accepted";
 }
 
 public static class AuditLogWriter
