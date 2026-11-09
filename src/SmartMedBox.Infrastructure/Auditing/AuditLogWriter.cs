@@ -15,6 +15,7 @@ public static class AuditActions
     public const string RelationshipRevoked = "RelationshipRevoked";
     public const string DeviceProvisioned = "DeviceProvisioned";
     public const string PairingCodeIssued = "PairingCodeIssued";
+    public const string DevicePaired = "DevicePaired";
 }
 
 public static class AuditLogWriter
