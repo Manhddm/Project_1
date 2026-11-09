@@ -103,6 +103,7 @@ builder.Services.AddScoped<DeviceAccessService>();
 builder.Services.AddScoped<RegistrationService>();
 builder.Services.AddScoped<PasswordResetService>();
 builder.Services.AddScoped<ScheduleService>();
+builder.Services.AddScoped<LoginService>();
 
 builder.Services.Configure<EmailSinkOptions>(options =>
     options.DirectoryPath = ResolveContentPath(

@@ -1,15 +1,9 @@
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
 using SmartMedBox.Api.Contracts;
 using SmartMedBox.Api.Errors;
 using SmartMedBox.Api.Security;
-using SmartMedBox.Domain.Abstractions;
 using SmartMedBox.Domain.Accounts;
-using SmartMedBox.Infrastructure.Data;
 using SmartMedBox.Infrastructure.Identity;
 using SmartMedBox.Infrastructure.Security;
 
@@ -18,22 +12,18 @@ namespace SmartMedBox.Api.Controllers;
 [ApiController]
 [Route("api/auth")]
 public sealed class AuthController(
-    AppDbContext db,
-    IPasswordHasher passwordHasher,
     IUserSessionStore sessions,
-    IClock clock,
+    LoginService login,
     RegistrationService registration,
     PasswordResetService passwordReset) : ControllerBase
 {
-    public const string SessionIdClaim = "session_id";
-
-    private const string PasswordPolicyMessage =
+    internal const string PasswordPolicyMessage =
         "Mật khẩu phải có ít nhất 8 ký tự, tối đa 128 ký tự và gồm cả chữ lẫn số.";
 
-    private const string ResendVerificationMessage =
+    internal const string ResendVerificationMessage =
         "Nếu email tồn tại và chưa xác minh, chúng tôi đã gửi lại.";
 
-    private const string ForgotPasswordMessage =
+    internal const string ForgotPasswordMessage =
         "Nếu email tồn tại, hướng dẫn đặt lại đã được gửi.";
 
     [HttpPost("register")]
@@ -147,68 +137,32 @@ public sealed class AuthController(
     [EnableRateLimiting(RateLimitPolicies.Login)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
-        string email;
-        try
+        var result = await login.LoginAsync(request.Email, request.Password, cancellationToken);
+        switch (result.Outcome)
         {
-            email = EmailNormalizer.Normalize(request.Email);
-        }
-        catch (ArgumentException)
-        {
-            return ApiProblemResults.Validation(HttpContext, "email", "Email không hợp lệ.");
-        }
-
-        var user = await db.ApplicationUsers
-            .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.Email == email && !x.IsDeleted, cancellationToken);
-
-        if (user is null || !passwordHasher.Verify(user.PasswordHash, request.Password))
-        {
-            return ApiProblemResults.Create(
-                HttpContext,
-                StatusCodes.Status401Unauthorized,
-                ErrorCodes.InvalidCredentials);
+            case LoginOutcome.InvalidEmail:
+                return ApiProblemResults.Validation(HttpContext, "email", "Email không hợp lệ.");
+            case LoginOutcome.InvalidCredentials:
+                return ApiProblemResults.Create(
+                    HttpContext,
+                    StatusCodes.Status401Unauthorized,
+                    ErrorCodes.InvalidCredentials);
+            case LoginOutcome.EmailNotVerified:
+                return ApiProblemResults.Create(
+                    HttpContext,
+                    StatusCodes.Status403Forbidden,
+                    ErrorCodes.EmailNotVerified);
         }
 
-        if (!user.EmailVerified)
-        {
-            return ApiProblemResults.Create(
-                HttpContext,
-                StatusCodes.Status403Forbidden,
-                ErrorCodes.EmailNotVerified);
-        }
-
-        var expiresAt = clock.UtcNow.Add(UserSessionDefaults.Lifetime);
-        var sessionId = sessions.Create(user.Id, expiresAt);
-        var identity = new ClaimsIdentity(
-            [
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(SessionIdClaim, sessionId),
-            ],
-            CookieAuthenticationDefaults.AuthenticationScheme);
-
-        await HttpContext.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme,
-            new ClaimsPrincipal(identity),
-            new AuthenticationProperties
-            {
-                IsPersistent = false,
-                ExpiresUtc = expiresAt,
-            });
-
+        await SessionCookie.SignInAsync(HttpContext, result);
+        var user = result.User!;
         return Ok(new LoginResponse(new UserDto(user.Id, user.Email, user.EmailVerified)));
     }
 
     [HttpPost("logout")]
     public async Task<IActionResult> Logout()
     {
-        var sessionId = User.FindFirstValue(SessionIdClaim);
-        if (!string.IsNullOrEmpty(sessionId))
-        {
-            sessions.Revoke(sessionId);
-        }
-
-        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        await SessionCookie.SignOutAsync(HttpContext, sessions);
         return NoContent();
     }
 }

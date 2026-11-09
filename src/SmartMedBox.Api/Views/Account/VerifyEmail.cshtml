@@ -1,0 +1,14 @@
+@model SmartMedBox.Api.Controllers.AccountForm
+@{
+    ViewData["Title"] = "Xác minh email";
+}
+<section class="panel">
+    <h1>Xác minh email</h1>
+    <p>Nhập mã xác minh trong email chúng tôi đã gửi.</p>
+    <form asp-action="VerifyEmail" method="post" novalidate>
+        <div asp-validation-summary="ModelOnly" class="form-errors" role="alert"></div>
+        <partial name="_Fields" view-data='new ViewDataDictionary(ViewData) { ["Fields"] = "token" }' />
+        <button type="submit">Xác minh</button>
+    </form>
+    <p>Không nhận được mã? <a asp-action="ResendVerification">Gửi lại mã xác minh</a></p>
+</section>

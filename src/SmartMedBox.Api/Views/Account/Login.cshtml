@@ -1,0 +1,17 @@
+@model SmartMedBox.Api.Controllers.AccountForm
+@{
+    ViewData["Title"] = "Đăng nhập";
+}
+<section class="panel">
+    <h1>Đăng nhập</h1>
+    <form asp-action="Login" method="post" novalidate>
+        <div asp-validation-summary="ModelOnly" class="form-errors" role="alert"></div>
+        @if (ViewData["NotVerified"] is true)
+        {
+            <p><a asp-action="ResendVerification">Gửi lại mã xác minh</a> hoặc <a asp-action="VerifyEmail">nhập mã xác minh</a>.</p>
+        }
+        <partial name="_Fields" view-data='new ViewDataDictionary(ViewData) { ["Fields"] = "email password" }' />
+        <button type="submit">Đăng nhập</button>
+    </form>
+    <p><a asp-action="ForgotPassword">Quên mật khẩu?</a> · <a asp-action="Register">Đăng ký tài khoản</a></p>
+</section>

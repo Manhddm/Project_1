@@ -1,0 +1,34 @@
+@model SmartMedBox.Api.Controllers.AccountForm
+@* Trường dùng chung; ViewData["Fields"] liệt kê trường cần hiển thị: email, token, password, new-password. *@
+@{
+    var fields = ((string)ViewData["Fields"]!).Split(' ');
+    var newPassword = fields.Contains("new-password");
+}
+@if (fields.Contains("email"))
+{
+    <div class="field">
+        <label asp-for="Email">Email</label>
+        <input asp-for="Email" type="email" autocomplete="email" required maxlength="320" />
+        <span asp-validation-for="Email" class="field-error"></span>
+    </div>
+}
+@if (fields.Contains("token"))
+{
+    <div class="field">
+        <label asp-for="Token">Mã trong email</label>
+        <input asp-for="Token" type="text" autocomplete="one-time-code" required maxlength="256" spellcheck="false" />
+        <span asp-validation-for="Token" class="field-error"></span>
+    </div>
+}
+@if (fields.Contains("password") || newPassword)
+{
+    <div class="field">
+        <label asp-for="Password">@(newPassword ? "Mật khẩu mới" : "Mật khẩu")</label>
+        <input asp-for="Password" type="password" autocomplete="@(newPassword ? "new-password" : "current-password")" required maxlength="128" aria-describedby="@(newPassword ? "password-hint" : null)" />
+        @if (newPassword)
+        {
+            <small id="password-hint" class="hint">Ít nhất 8 ký tự, tối đa 128 ký tự, gồm cả chữ và số.</small>
+        }
+        <span asp-validation-for="Password" class="field-error"></span>
+    </div>
+}

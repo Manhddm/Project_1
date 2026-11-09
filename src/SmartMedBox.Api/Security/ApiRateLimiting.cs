@@ -58,6 +58,16 @@ public static class ApiRateLimiting
                     httpContext.Response.Headers.RetryAfter = rule.WindowSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 }
 
+                // Form Razor (UI-01) không đọc được ProblemDetails JSON; trả văn bản thuần cùng status + Retry-After.
+                if (!httpContext.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+                {
+                    httpContext.Response.ContentType = "text/plain; charset=utf-8";
+                    await httpContext.Response.WriteAsync(
+                        "Bạn đã thử quá nhiều lần, vui lòng thử lại sau.",
+                        cancellationToken);
+                    return;
+                }
+
                 await ApiProblems.WriteAsync(
                     httpContext,
                     StatusCodes.Status429TooManyRequests,

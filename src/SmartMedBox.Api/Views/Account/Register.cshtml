@@ -1,0 +1,13 @@
+@model SmartMedBox.Api.Controllers.AccountForm
+@{
+    ViewData["Title"] = "Đăng ký";
+}
+<section class="panel">
+    <h1>Đăng ký tài khoản</h1>
+    <form asp-action="Register" method="post" novalidate>
+        <div asp-validation-summary="ModelOnly" class="form-errors" role="alert"></div>
+        <partial name="_Fields" view-data='new ViewDataDictionary(ViewData) { ["Fields"] = "email new-password" }' />
+        <button type="submit">Đăng ký</button>
+    </form>
+    <p>Đã có tài khoản? <a asp-action="Login">Đăng nhập</a></p>
+</section>

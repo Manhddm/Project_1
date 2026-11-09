@@ -54,3 +54,102 @@ p {
     margin-bottom: 0;
     color: var(--muted);
 }
+
+.app-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.app-brand,
+.app-nav a,
+.link-button {
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.app-nav {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.inline-form {
+    display: inline;
+    margin: 0;
+}
+
+.link-button {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+}
+
+.notice {
+    padding: 0.75rem 1rem;
+    margin: 0 0 1rem;
+    background: #e6f4ee;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    color: var(--text);
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+}
+
+.field input {
+    width: 100%;
+    max-width: 28rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font: inherit;
+}
+
+input:focus-visible,
+button:focus-visible,
+a:focus-visible {
+    outline: 3px solid #f0b429;
+    outline-offset: 2px;
+}
+
+.hint {
+    color: var(--muted);
+}
+
+.field-error,
+.form-errors {
+    color: #b42318;
+}
+
+.form-errors ul {
+    margin: 0 0 1rem;
+    padding-left: 1.25rem;
+}
+
+.validation-summary-valid {
+    display: none;
+}
+
+button[type="submit"]:not(.link-button) {
+    min-height: 44px;
+    padding: 0.625rem 1.25rem;
+    border: 0;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #ffffff;
+    font: inherit;
+    cursor: pointer;
+}
+
+.panel form + p {
+    margin-top: 1rem;
+}

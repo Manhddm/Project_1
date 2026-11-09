@@ -8,9 +8,27 @@
 </head>
 <body>
 <header class="app-header">
-    <span class="app-brand">Hộp thuốc thông minh</span>
+    <a class="app-brand" href="/">Hộp thuốc thông minh</a>
+    <nav class="app-nav" aria-label="Tài khoản">
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <a href="/account">Tài khoản</a>
+            <form asp-controller="Account" asp-action="Logout" method="post" class="inline-form">
+                <button type="submit" class="link-button">Đăng xuất</button>
+            </form>
+        }
+        else
+        {
+            <a href="/account/login">Đăng nhập</a>
+            <a href="/account/register">Đăng ký</a>
+        }
+    </nav>
 </header>
 <main class="app-main">
+    @if ((TempData["Message"] ?? ViewData["Message"]) is string message)
+    {
+        <p class="notice" role="status">@message</p>
+    }
     @RenderBody()
 </main>
 @await RenderSectionAsync("Scripts", required: false)

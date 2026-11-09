@@ -1,0 +1,12 @@
+@model SmartMedBox.Api.Controllers.AccountForm
+@{
+    ViewData["Title"] = "Gửi lại mã xác minh";
+}
+<section class="panel">
+    <h1>Gửi lại mã xác minh</h1>
+    <form asp-action="ResendVerification" method="post" novalidate>
+        <partial name="_Fields" view-data='new ViewDataDictionary(ViewData) { ["Fields"] = "email" }' />
+        <button type="submit">Gửi lại</button>
+    </form>
+    <p>Đã có mã? <a asp-action="VerifyEmail">Nhập mã xác minh</a></p>
+</section>
