@@ -101,6 +101,34 @@ public sealed class PrescriptionImageService(AppDbContext db, IFileStorage stora
             new PrescriptionImageContent(content, image.ContentType, image.OriginalFileName));
     }
 
+    public async Task<PrescriptionImageAccessOutcome> DeleteAsync(
+        Guid userId,
+        Guid imageId,
+        CancellationToken cancellationToken = default)
+    {
+        var deviceId = await GetOwnedDeviceIdAsync(userId, cancellationToken);
+        if (deviceId is null)
+        {
+            return PrescriptionImageAccessOutcome.Forbidden;
+        }
+
+        var image = await db.PrescriptionImages
+            .SingleOrDefaultAsync(x => x.Id == imageId && x.OwnerUserId == userId && !x.IsDeleted, cancellationToken);
+        if (image is null)
+        {
+            return PrescriptionImageAccessOutcome.NotFound;
+        }
+
+        image.IsDeleted = true;
+        var now = clock.UtcNow;
+        AuditLogWriter.Add(db, now, AuditActions.PrescriptionImageDeleted, nameof(PrescriptionImage),
+            image.Id.ToString(), userId, deviceId);
+        await db.SaveChangesAsync(cancellationToken);
+
+        // [TBD-D16] Retain the physical file until the retention policy is decided.
+        return PrescriptionImageAccessOutcome.Ok;
+    }
+
     public async Task<(PrescriptionUploadOutcome Outcome, PrescriptionImageView? Image)> UploadAsync(
         Guid userId,
         string? originalFileName,

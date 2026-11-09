@@ -59,6 +59,24 @@ public sealed class PrescriptionImagesController(PrescriptionImageService images
         return File(content.Content, content.ContentType);
     }
 
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Problem(StatusCodes.Status401Unauthorized, ErrorCodes.Unauthorized);
+        }
+
+        var outcome = await images.DeleteAsync(userId, id, cancellationToken);
+        return outcome switch
+        {
+            PrescriptionImageAccessOutcome.Ok => NoContent(),
+            PrescriptionImageAccessOutcome.Forbidden => Problem(StatusCodes.Status403Forbidden, ErrorCodes.Forbidden),
+            PrescriptionImageAccessOutcome.NotFound => Problem(StatusCodes.Status404NotFound, ErrorCodes.ImageNotFound),
+            _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, null),
+        };
+    }
+
     [HttpPost]
     [RequestSizeLimit(MaxRequestBytes)]
     public async Task<IActionResult> Upload(CancellationToken cancellationToken)
