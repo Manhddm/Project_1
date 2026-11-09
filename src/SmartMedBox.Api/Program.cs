@@ -22,6 +22,9 @@ using SmartMedBox.Infrastructure.Storage;
 using SystemClock = SmartMedBox.Infrastructure.Time.SystemClock;
 
 var builder = WebApplication.CreateBuilder(args);
+var secureCookiePolicy = builder.Environment.IsDevelopment()
+    ? CookieSecurePolicy.SameAsRequest
+    : CookieSecurePolicy.Always;
 
 var connectionString = builder.Configuration.GetConnectionString("Default");
 if (string.IsNullOrWhiteSpace(connectionString))
@@ -47,7 +50,7 @@ builder.Services.AddAntiforgery(options =>
     options.HeaderName = "X-CSRF-TOKEN";
     options.Cookie.Name = "SmartMedBox.Csrf";
     options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = secureCookiePolicy;
     options.Cookie.SameSite = SameSiteMode.Lax;
 });
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -55,7 +58,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     {
         options.Cookie.Name = "SmartMedBox.Auth";
         options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SecurePolicy = secureCookiePolicy;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.ExpireTimeSpan = UserSessionDefaults.Lifetime;
         options.SlidingExpiration = false;
@@ -141,7 +144,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseHttpLogging();
 app.UseStatusCodePages(ApiStatusCodePages.HandleAsync);
 
