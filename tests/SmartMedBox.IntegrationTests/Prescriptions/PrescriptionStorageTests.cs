@@ -56,7 +56,10 @@ public sealed class PrescriptionStorageTests(SqlServerDatabaseFixture fixture) :
     {
         var setup = await PrescriptionTestSupport.SeedAsync(fixture);
         await using var db = fixture.CreateContext();
-        var service = new PrescriptionImageService(db);
+        var service = new PrescriptionImageService(
+            db,
+            new LocalFileStorage(Options.Create(new FileStorageOptions { RootPath = Path.GetTempPath() })),
+            new SmartMedBox.Infrastructure.Time.SystemClock());
 
         Assert.Equal(setup.DeviceId, await service.GetOwnedDeviceIdAsync(setup.Owner.Id));
         Assert.Null(await service.GetOwnedDeviceIdAsync(setup.Relative.Id));

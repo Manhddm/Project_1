@@ -16,6 +16,7 @@ public static class AuditActions
     public const string DeviceProvisioned = "DeviceProvisioned";
     public const string PairingCodeIssued = "PairingCodeIssued";
     public const string DevicePaired = "DevicePaired";
+    public const string PrescriptionImageUploaded = "PrescriptionImageUploaded";
 }
 
 public static class AuditLogWriter
