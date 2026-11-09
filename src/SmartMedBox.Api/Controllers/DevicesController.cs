@@ -42,6 +42,26 @@ public sealed class DevicesController(DeviceOwnershipService ownership) : Contro
         };
     }
 
+    [HttpGet("mine")]
+    public async Task<IActionResult> Mine(CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+        {
+            return Fail(StatusCodes.Status401Unauthorized, ErrorCodes.Unauthorized);
+        }
+
+        var device = await ownership.GetOwnedAsync(userId, cancellationToken);
+        return device is null
+            ? Fail(StatusCodes.Status404NotFound, ErrorCodes.DeviceNotFound)
+            : Ok(new MyDeviceDto(
+                device.Id,
+                device.SerialNumber,
+                device.ScheduleVersion,
+                device.LastSeenAt,
+                IsOnline: null,
+                ToDto(device.Compartments)));
+    }
+
     private static List<CompartmentDto> ToDto(IReadOnlyList<OwnedCompartment> compartments) =>
         compartments.Select(x => new CompartmentDto(x.SlotNumber, x.Name, x.IsEnabled)).ToList();
 

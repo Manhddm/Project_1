@@ -122,6 +122,16 @@ public sealed class DeviceOwnershipService(AppDbContext db, ITokenHasher hasher,
         return new PairingResult(PairingOutcome.Success, await LoadAsync(pairingCode.DeviceId, cancellationToken), now);
     }
 
+    /// <summary>Hộp mà người dùng sở hữu (P2-05); null nếu chưa ghép — người thân không dùng endpoint này.</summary>
+    public async Task<OwnedDevice?> GetOwnedAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var deviceKey = await db.Devices
+            .Where(x => x.OwnerUserId == userId)
+            .Select(x => (Guid?)x.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+        return deviceKey is null ? null : await LoadAsync(deviceKey.Value, cancellationToken);
+    }
+
     private async Task<OwnedDevice> LoadAsync(Guid deviceKey, CancellationToken cancellationToken)
     {
         var device = await db.Devices
