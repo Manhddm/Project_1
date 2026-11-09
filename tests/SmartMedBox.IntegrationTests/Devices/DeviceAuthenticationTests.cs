@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using SmartMedBox.Domain.Abstractions;
 using SmartMedBox.Domain.Devices;
@@ -93,7 +94,7 @@ public sealed class DeviceAuthenticationTests(SqlServerDatabaseFixture fixture) 
         Assert.Equal("UNAUTHORIZED", body.RootElement.GetProperty("code").GetString());
     }
 
-    internal static async Task<ProvisioningResult> ProvisionAsync(TestApplicationFactory factory)
+    internal static async Task<ProvisioningResult> ProvisionAsync(WebApplicationFactory<Program> factory)
     {
         using var scope = factory.Services.CreateScope();
         var services = scope.ServiceProvider;
