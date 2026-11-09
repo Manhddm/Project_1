@@ -1,8 +1,8 @@
 # PLAN.md — Kế hoạch triển khai MVP Hộp thuốc thông minh
 
-> Phiên bản: 1.2 · Ngày: 2026-10-29 · Nguồn yêu cầu: `Hop-thuoc-thong-minh.html`
+> Phiên bản: 1.3 · Ngày: 2026-10-29 · Nguồn yêu cầu: `Hop-thuoc-thong-minh.html`
 >
-> Bản 1.2 chốt D-01/D-02 tại P0-01 và cập nhật phạm vi bảng dữ liệu (bỏ `RefreshTokens`).
+> Bản 1.3 chốt D-05 (CLI nội bộ trong `tools/`), D-10 (timezone IANA theo từng lịch), D-14 (gói chính sách mật khẩu/token/rate limit/hạn lời mời) và D-22 (giữ nguyên dose đã sinh). Bản 1.2 chốt D-01/D-02 tại P0-01 và cập nhật phạm vi bảng dữ liệu (bỏ `RefreshTokens`).
 >
 > Tài liệu liên quan: [AGENTS.md](AGENTS.md) · [TASKS.md](TASKS.md) · [API_CONTRACT.md](API_CONTRACT.md)
 
@@ -60,16 +60,16 @@ HTML đặt badge **"MỐC MVP"** tại mốc 4 nhưng danh sách 12 tiêu chí 
 | **D-02** | Xác thực người dùng: cookie session hay JWT + refresh token | **[ĐÃ CHỐT 2026-10-29]** — cookie session + CSRF; không dùng JWT, bỏ bảng `RefreshTokens` | P1-03 |
 | **D-03** | Nhà cung cấp email (SMTP nội bộ / dịch vụ) | **[TBD]** | P0-04, P5-03 |
 | **D-04** | Backend lưu file ảnh (local private / blob storage) | **[TBD]** | P6-01 |
-| **D-05** | Công cụ provision thiết bị (CLI nội bộ hay endpoint admin) | **[TBD]** — HTML chỉ nói "Server biết..." | P2-02 |
+| **D-05** | Công cụ provision thiết bị (CLI nội bộ hay endpoint admin) | **[ĐÃ CHỐT 2026-10-29]** — CLI nội bộ: project console trong `tools/`, chỉ dành cho vận hành/nhà máy; **không** có endpoint admin hay role admin | P2-02 |
 | **D-06** | Firmware ESP32 nằm trong repo này hay repo riêng; ai sở hữu | **[TBD]** | HW-* |
 | **D-07** | Định dạng xác thực thiết bị trên HTTP | **[ĐÃ CHỐT 2026-10-29]** — header `X-Device-Id` + `X-Device-Api-Key`; khóa 32 byte base64url; lưu HMAC+pepper; so sánh constant-time | P2-06 |
 | **D-08** | Định dạng/độ dài/hạn dùng pairing code và payload QR | **[ĐÃ CHỐT 2026-10-29]** — 8 ký tự Crockford Base32 (40 bit), TTL 15 phút, QR `{"v":1,"code":"<code>"}` | P2-02, P2-03 |
 | **D-09** | Giá trị enum: `DoseStatus`, `AlertType`, `DeviceEventType`, `PairingState` | **[ĐÃ CHỐT 2026-10-29]** — enum tại API_CONTRACT §10.2 + enum schema-only; `daysOfWeek` ISO-8601; `Channel = Email` | P0-03 |
-| **D-10** | Nguồn `TimeZoneId` cho lịch; một hay nhiều timezone trên một hộp; dashboard "hôm nay" nhóm theo timezone nào | **[TBD]** | P3-01, P3-06 |
+| **D-10** | Nguồn `TimeZoneId` cho lịch; một hay nhiều timezone trên một hộp; dashboard "hôm nay" nhóm theo timezone nào | **[ĐÃ CHỐT 2026-10-29]** — mỗi lịch chọn `TimeZoneId` IANA riêng (mặc định `Asia/Ho_Chi_Minh`); một hộp có thể có nhiều timezone; dashboard nhóm "hôm nay" **theo từng dose/lịch**, không dùng một timezone chung cho cả hộp | P3-01, P3-06 |
 | **D-11** | Tầm sinh trước (horizon) và tần suất job sinh dose | **[TBD]** | P3-03 |
 | **D-12** | Ngưỡng coi thiết bị offline (dựa trên `LastSeenAt`) | **[TBD]** | P4-04 |
 | **D-13** | Chính sách retry email (số lần, backoff) | **[TBD]** | P5-03 |
-| **D-14** | Chính sách mật khẩu, TTL token, ngưỡng rate limit, hạn lời mời | **[TBD]** | P1-04, P1-06, P2-09 |
+| **D-14** | Chính sách mật khẩu, TTL token, ngưỡng rate limit, hạn lời mời | **[ĐÃ CHỐT 2026-10-29]** — "Gói đề xuất": mật khẩu ≥ 8 ký tự có chữ + số, ≤ 128; token xác minh/đặt lại TTL 24 giờ; lời mời hết hạn sau 7 ngày; rate limit: login 10 lần/15 phút/IP, pair 5 lần/phút/IP, invitation 10 lần/ngày, accept 10 lần/phút/IP; trả `429` + `Retry-After` | P1-02, P1-04, P1-06, P2-09 |
 | **D-15** | Xác nhận muộn sau khi đã `Overdue` xử lý thế nào | **[ĐÃ GỘP → D-24]** — giữ mã để truy vết | P3-05, P4-03 |
 | **D-16** | Upload ảnh trùng lặp và thời gian lưu file sau xóa mềm | **[TBD]** | P6-02, P6-04 |
 | **D-17** | Chính sách ẩn danh hóa khi xóa tài khoản | **[TBD]** — chưa có endpoint trong HTML | P7-06 |
@@ -77,11 +77,12 @@ HTML đặt badge **"MỐC MVP"** tại mốc 4 nhưng danh sách 12 tiêu chí 
 | **D-19** | Retention: log ứng dụng, audit log, file ảnh sau xóa mềm | **[TBD]** — HTML nhắc backup/retention nhưng không nêu thời hạn | P6-05, P7-01, P7-04, P7-06 |
 | **D-20** | Hình thức quét QR trên Web (camera, tải ảnh, hay nhập mã) | **[TBD]** — HTML chỉ nói "quét QR trên Web" | P2-03, UI-02 |
 | **D-21** | Độ bền hàng đợi sự kiện khi mất điện và giới hạn dung lượng queue | **[TBD]** — HTML không quy định | HW-03 |
-| **D-22** | Sửa/xóa lịch tác động thế nào đến các `DoseInstances`/snapshot **đã sinh nhưng chưa tới**, trong khi ESP32 đã tải lịch mới | **[TBD]** — HTML cấm đổi lịch sử đã sinh nhưng chưa nói xử lý dose tương lai; chốt trước P3-02 | P3-02, P3-03, P3-04, P4-03 |
+| **D-22** | Sửa/xóa lịch tác động thế nào đến các `DoseInstances`/snapshot **đã sinh nhưng chưa tới**, trong khi ESP32 đã tải lịch mới | **[ĐÃ CHỐT 2026-10-29]** — giữ nguyên dose: `DoseInstances`/snapshot đã sinh là bất biến, không hủy/tái sinh; lịch mới chỉ áp dụng cho các dose sinh **sau** thời điểm thay đổi; vì vậy horizon sinh dose phải ngắn (chốt cùng D-11) để giảm khoảng lệch giữa lịch trên thiết bị và dose phía server | P3-02, P3-03, P3-04, P4-03 |
 | **D-23** | Hai lịch cùng ngăn trùng giờ hoặc chồng lấn khung ngày | **[TBD]** — HTML không quy định; đề xuất chặn trùng tuyệt đối | P3-02, P3-03 |
 | **D-24** | Vòng đời cảnh báo & xác nhận muộn: `Overdue`/`Unknown` có được chuyển `Confirmed`; ý nghĩa `ResolvedAt`; người nhận đã tạo alert nhưng bị thu hồi trước khi gửi | **[TBD]** — HTML chỉ nói "quá hạn tạo cảnh báo" | P3-05, P4-03, P5-02 |
 | **D-25** | Cách ESP32 nhận cấu hình Wi‑Fi và base URL server khi onboarding | **[TBD]** — HTML nêu Wi‑Fi nhưng không nêu phương thức | HW-01, HW-04, P4-05 |
 | **D-26** | Chính sách đồng bộ RTC/clock skew: ngưỡng lệch chấp nhận, tần suất sync, xử lý event cũ/tương lai | **[TBD]** — HTML yêu cầu RTC nhưng không nêu dung sai | HW-02, HW-04, P4-02 |
+| **D-27** | Lưu trữ session đăng nhập phía server (in-memory hay durable) và TTL session | **[TBD]** — P1-03 dùng in-memory + TTL 8 giờ theo [ĐỀ XUẤT]; mất session khi restart, không chia sẻ giữa nhiều instance; phải chốt trước khi vận hành nhiều instance | P1-03, P7-03 |
 
 ---
 
@@ -189,7 +190,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** `POST /api/auth/register`, `POST /api/auth/verify-email`, [ĐỀ XUẤT] `POST /api/auth/resend-verification`; token hash + hạn dùng; email template xác minh.
 - **Phụ thuộc:** P1-01, P0-04.
 - **Acceptance / DoD:** Test đăng ký → bắt mail → xác minh → `EmailVerified=true`; email trùng 409; token dùng lại bị từ chối; không lộ việc email đã tồn tại qua thông báo phụ.
-- **Ghi chú:** [TBD-D14] TTL token xác minh; chính sách mật khẩu.
+- **Ghi chú:** **D-14 đã chốt:** mật khẩu ≥ 8 ký tự có chữ + số, ≤ 128; token xác minh TTL 24 giờ; rate limit đăng ký theo D-14.
 
 ### <a id="p1-03"></a>P1-03 · Đăng nhập, đăng xuất, hồ sơ
 
@@ -207,7 +208,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`; token hash một lần; thu hồi phiên cũ sau đổi mật khẩu.
 - **Phụ thuộc:** P1-01, P0-04.
 - **Acceptance / DoD:** Test email lạ vẫn trả 202; token dùng lại/hết hạn bị từ chối; đăng nhập bằng mật khẩu mới OK.
-- **Ghi chú:** [TBD-D14] TTL token đặt lại.
+- **Ghi chú:** **D-14 đã chốt:** token đặt lại mật khẩu TTL 24 giờ, dùng một lần.
 
 ### <a id="p1-05"></a>P1-05 · Phân quyền theo từng hộp (owner / relative)
 
@@ -225,7 +226,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** Rate limiter cho auth [ĐỀ XUẤT] và invitation [BẮT BUỘC]; phản hồi 429 + `Retry-After`; cấu hình ngưỡng.
 - **Phụ thuộc:** P1-03.
 - **Acceptance / DoD:** Test vượt ngưỡng trả 429; không ảnh hưởng endpoint khác; ngưỡng cấu hình được.
-- **Ghi chú:** [TBD-D14] Ngưỡng cụ thể. Invitation limiter nối vào P2-09.
+- **Ghi chú:** **D-14 đã chốt:** login 10 lần/15 phút/IP; pair 5 lần/phút/IP; invitation 10 lần/ngày; accept 10 lần/phút/IP; trả `429` + `Retry-After`. Invitation limiter nối vào P2-09.
 
 ---
 
@@ -249,7 +250,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** Công cụ provision (CLI/endpoint theo D-05); sinh `DeviceApiKey` ngẫu nhiên (hiển thị một lần), lưu hash; sinh pairing code + hạn (hash); audit.
 - **Phụ thuộc:** P2-01, P0-05.
 - **Acceptance / DoD:** Không log/lưu khóa rõ; test provision tạo đủ 3 ngăn; pairing code hết hạn bị từ chối; không thể lấy lại khóa.
-- **Ghi chú:** [TBD-D05] Quy trình nhà máy; định dạng mã/hạn dùng theo D-08 đã chốt (8 ký tự Crockford Base32, 15 phút).
+- **Ghi chú:** **D-05 đã chốt:** CLI nội bộ (project console trong `tools/`), chỉ vận hành/nhà máy; không có endpoint admin. Định dạng mã/hạn dùng theo D-08 đã chốt (8 ký tự Crockford Base32, 15 phút).
 
 ### <a id="p2-03"></a>P2-03 · Payload QR & in nhãn
 
@@ -303,7 +304,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** Entities + migration; filtered unique cặp `(DeviceId, RelativeUserId)` đang hoạt động; filtered unique lời mời Pending theo hộp + email chuẩn hóa; `TokenHash`; trạng thái.
 - **Phụ thuộc:** P2-01, P1-01.
 - **Acceptance / DoD:** Test chặn 2 lời mời Pending trùng; chặn 2 quan hệ active trùng; `ExpiresAt` bắt buộc; revoke giữ lịch sử.
-- **Ghi chú:** [TBD-D14] Hạn lời mời.
+- **Ghi chú:** **D-14 đã chốt:** lời mời hết hạn sau 7 ngày kể từ lúc tạo.
 
 ### <a id="p2-09"></a>P2-09 · API lời mời người thân
 
@@ -336,7 +337,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** `MedicationSchedules`, `ScheduleDays` (PK kép), `ScheduleItems`; check ngày 1–7; grace 1–120; `StartDate`/`EndDate`; `TimeZoneId`; migration.
 - **Phụ thuộc:** P2-01.
 - **Acceptance / DoD:** Test composite PK; check grace ngoài 1–120 bị chặn; ít nhất một ngày; `EndDate >= StartDate`; xóa mềm.
-- **Ghi chú:** [TBD-D10] Nguồn timezone; danh sách timezone hợp lệ; một hay nhiều timezone trên một hộp. Nếu nhiều, dashboard phải nhóm "hôm nay" theo từng lịch/dose chứ không dùng một timezone chung.
+- **Ghi chú:** **D-10 đã chốt:** mỗi lịch chọn `TimeZoneId` IANA riêng (mặc định `Asia/Ho_Chi_Minh`); một hộp có thể có nhiều timezone; dashboard nhóm "hôm nay" theo từng lịch/dose chứ không dùng một timezone chung.
 
 ### <a id="p3-02"></a>P3-02 · CRUD lịch & ScheduleVersion
 
@@ -345,7 +346,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** `GET /api/schedules`, `GET /api/schedules/{id}`, `POST`, `PUT`, `DELETE` (xóa mềm); chỉ chủ; tăng `ScheduleVersion` trong transaction; audit; validation đầy đủ; chặn lịch trùng tuyệt đối (cùng ngăn + giờ + khung ngày) [ĐỀ XUẤT]; không sửa dose/snapshot đã sinh.
 - **Phụ thuộc:** P3-01, P1-05.
 - **Acceptance / DoD:** Test relative 403 cho POST/PUT/DELETE; owner OK; version tăng mỗi thay đổi (kể cả DELETE); xóa mềm không mất lịch sử; validate ngăn thuộc đúng thiết bị; PUT/DELETE không làm đổi dose/snapshot đã sinh.
-- **Ghi chú:** [ĐỀ XUẤT] Hỗ trợ `If-Match`/`expectedVersion` để chống ghi đè. **[TBD-D22]** Chưa chốt xử lý các `DoseInstances` `Pending` đã sinh trong tương lai khi sửa/xóa lịch — không tự hủy/tái sinh. **[TBD-D23]** Chưa chốt lịch chồng lấn cùng ngăn.
+- **Ghi chú:** [ĐỀ XUẤT] Hỗ trợ `If-Match`/`expectedVersion` để chống ghi đè. **D-22 đã chốt:** giữ nguyên `DoseInstances`/snapshot đã sinh (kể cả `Pending` trong tương lai); lịch mới chỉ áp dụng cho dose sinh sau thời điểm thay đổi — không hủy/tái sinh. **[TBD-D23]** Chưa chốt lịch chồng lấn cùng ngăn.
 
 ### <a id="p3-03"></a>P3-03 · Sinh DoseInstances + snapshot
 
@@ -354,7 +355,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** Background job sinh `DoseInstances` (`ScheduledAt`, `DeadlineAt = +grace`, `Status=Pending`) + `DoseItemSnapshots` (copy thuốc + grace); sinh bù các mốc bị lỡ trong horizon khi job downtime; chống sinh trùng; horizon/cadence theo D-11.
 - **Phụ thuộc:** P3-01, P0-04.
 - **Acceptance / DoD:** Test: đúng ngày trong tuần, đúng timezone; không sinh trùng khi job chạy lặp/song song; chạy bù sau downtime không nhân đôi; sửa lịch sau đó không đổi dose/snapshot đã sinh (AC-10); `DeadlineAt` đúng.
-- **Ghi chú:** [TBD-D11] Sinh trước bao nhiêu ngày, chạy bao lâu/lần. Horizon phải đủ dài so với thời gian offline tối đa hỗ trợ, nếu không event offline về muộn sẽ không có dose để ghép. [ĐỀ XUẤT] Unique `(ScheduleId, ScheduledAt)` để chống trùng. **[TBD-D22]** Không tự quyết định hủy/tái sinh dose `Pending` tương lai khi lịch đổi.
+- **Ghi chú:** [TBD-D11] Sinh trước bao nhiêu ngày, chạy bao lâu/lần. Horizon phải đủ dài so với thời gian offline tối đa hỗ trợ, nếu không event offline về muộn sẽ không có dose để ghép; đồng thời **D-22 đã chốt giữ nguyên dose đã sinh** nên horizon càng dài thì khoảng lệch giữa lịch thiết bị và dose server càng lớn — D-11 phải chọn ngắn. [ĐỀ XUẤT] Unique `(ScheduleId, ScheduledAt)` để chống trùng.
 
 ### <a id="p3-04"></a>P3-04 · Đồng bộ lịch cho thiết bị
 
@@ -363,7 +364,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** `GET /api/device/schedule-sync?version=`; trả gói đầy đủ khi version cũ hơn; 204 khi không đổi; chỉ thiết bị đã ghép; payload đủ để chạy offline, **`timeZoneId` nằm trong từng lịch**, kèm `serverTimeUtc` để đồng bộ RTC; version tăng khi tạo/sửa/xóa mềm lịch.
 - **Phụ thuộc:** P3-01, P3-02, P2-07.
 - **Acceptance / DoD:** Test đúng/không đổi version; Unpaired bị từ chối; payload chứa giờ, ngày, grace, items, timezone từng lịch; xóa lịch làm version tăng; không lộ dữ liệu hộp khác; tải lỗi giữa chừng không ghi đè lịch tốt.
-- **Ghi chú:** Thiết bị chỉ thay lịch cục bộ khi áp dụng trọn gói (firmware HW-04). **[TBD-D22]** Khi sửa lịch, gói đồng bộ mới phải nhất quán với các dose server sẽ dùng để ghép; chốt D-22 trước khi hoàn tất task này.
+- **Ghi chú:** Thiết bị chỉ thay lịch cục bộ khi áp dụng trọn gói (firmware HW-04). **D-22 đã chốt:** dose đã sinh là bất biến, nên sau khi sửa lịch có thể còn dose tương lai theo lịch cũ; gói đồng bộ mới chỉ mô tả lịch hiện hành và hợp đồng chấp nhận khoảng lệch này (giảm thiểu bằng horizon ngắn theo D-11).
 
 ### <a id="p3-05"></a>P3-05 · Máy trạng thái lần uống
 
@@ -724,7 +725,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 | Web UI | UI-01 → UI-02 → UI-03; UI-06 ∥ UI-05 | UI-07 cuối cùng |
 | Nghiệm thu | P7-04 ∥ P7-06 | P7-01 → P7-02 → P7-03 → P7-05 |
 
-Quy tắc: chỉ bắt đầu task khi **mọi dependency ở trạng thái DONE** hoặc có quyết định chấp nhận rủi ro được ghi trong TASKS. P3-02 và P3-03 có thể code song song nhưng **không được DONE** trước khi D-22/D-23 được chốt vì cùng ảnh hưởng tập dose tương lai. Mỗi mốc M1–M5 phải có **dữ liệu mẫu chung + một kịch bản tích hợp firmware ↔ backend** để hai nhánh kiểm tra được nhau (HTML §12).
+Quy tắc: chỉ bắt đầu task khi **mọi dependency ở trạng thái DONE** hoặc có quyết định chấp nhận rủi ro được ghi trong TASKS. P3-02 và P3-03 có thể code song song nhưng **không được DONE** trước khi D-23 được chốt (D-22 đã chốt 2026-10-29). Mỗi mốc M1–M5 phải có **dữ liệu mẫu chung + một kịch bản tích hợp firmware ↔ backend** để hai nhánh kiểm tra được nhau (HTML §12).
 
 ---
 
@@ -771,7 +772,7 @@ Quy tắc: chỉ bắt đầu task khi **mọi dependency ở trạng thái DONE
 | Firmware ngoài repo (D-06) | Tích hợp muộn, lệch hợp đồng | P4-05 chốt sớm; test bằng simulator; bench định kỳ |
 | Ngưỡng offline (D-12) chưa chốt | Sai trạng thái Overdue/Unknown | Chốt cùng P4-04; test biên |
 | Job sinh dose/alert chạy trùng | Dữ liệu nhân đôi | Unique key + transaction + test chạy song song |
-| Sửa lịch làm lệch dose server ↔ lịch trên thiết bị (D-22) | Nhắc giờ mới nhưng server chờ giờ cũ → không xác nhận | Chốt D-22 trước P3-02; test sửa lịch trong lúc thiết bị offline/online |
+| Sửa lịch làm lệch dose server ↔ lịch trên thiết bị (D-22 — đã chốt giữ nguyên dose) | Nhắc giờ mới nhưng server chờ giờ cũ → không xác nhận | Giữ nguyên dose đã sinh; chốt D-11 horizon ngắn; test sửa lịch trong lúc thiết bị offline/online |
 | Hai lịch chồng lấn cùng ngăn (D-23) | Một lần mở khớp nhiều dose, nhắc trùng | Chốt quy tắc; chặn trùng tuyệt đối; test biên |
 | Job alert chạy muộn dùng `LastSeenAt` hiện tại | Online/Offline sai, kết luận sai | Đánh giá theo trạng thái tại `DeadlineAt`; test reconnect sau deadline |
 | Xác nhận muộn sau Overdue/Unknown (D-24) | Trạng thái/alert không nhất quán | Chốt D-24; hiện mặc định không đổi trạng thái |
@@ -789,7 +790,7 @@ Giả định:
 - Một tài khoản có thể vừa là chủ 1 hộp vừa là người thân của nhiều hộp khác (HTML cho phép qua bảng nối).
 - Người thân không có giới hạn số lượng (chỉ rate-limit lời mời).
 - Người thân phải có tài khoản đã xác minh email để chấp nhận lời mời (HTML yêu cầu xác minh email cho luồng ghép; áp dụng nhất quán cho lời mời — nếu chủ dự án chốt khác, cập nhật P2-09).
-- Thời gian nghiệp vụ tính theo `TimeZoneId` của lịch; hiển thị cho người dùng theo timezone đó [TBD-D10].
+- Thời gian nghiệp vụ tính theo `TimeZoneId` của **từng lịch** (D-10 đã chốt: mỗi lịch chọn IANA riêng, mặc định `Asia/Ho_Chi_Minh`); dashboard nhóm "hôm nay" theo từng lịch/dose.
 - Không có tích hợp thiết bị y tế hoặc tư vấn y tế trong MVP.
 - Firmware có thể được cấu hình Wi‑Fi/server URL khi sản xuất hoặc bằng quy trình onboarding riêng; phương thức cụ thể **[TBD-D25]**, không tự thêm màn hình cấu hình vào Web nếu chưa chốt.
 - "Đã xác nhận" trong toàn bộ tài liệu chỉ có nghĩa "nắp đúng ngăn đã mở trong cửa sổ", không phải đã uống thuốc.

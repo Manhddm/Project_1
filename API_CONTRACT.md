@@ -1,8 +1,8 @@
 # API_CONTRACT.md — Hợp đồng API MVP Hộp thuốc thông minh
 
-> Phiên bản: 1.4 · Ngày: 2026-10-29 · Trạng thái: **Đã chốt cấu trúc cho Phase 1–2 (D-07, D-08, D-09); các TBD còn lại giữ nguyên nhãn tại §15**
+> Phiên bản: 1.5 · Ngày: 2026-10-29 · Trạng thái: **Đã chốt cấu trúc cho Phase 1–2 (D-07, D-08, D-09, D-14); các TBD còn lại giữ nguyên nhãn tại §15**
 >
-> Bản 1.4 (P0-03): chốt D-07 (xác thực thiết bị), D-08 (pairing code + payload QR), D-09 (enum & `daysOfWeek`); chốt quy ước ProblemDetails và catalog lỗi. Bản 1.3 rà soát QA: bỏ tàn dư refresh token ở logout/reset-password sau khi chốt D-02.
+> Bản 1.5 chốt D-14 (chính sách mật khẩu, TTL token, hạn lời mời, ngưỡng rate limit — §1.6), D-10 (timezone IANA theo từng lịch), D-22 (giữ nguyên dose đã sinh) và ghi nhận D-05 (provision bằng CLI nội bộ, không có endpoint admin). Bản 1.4.1 (P0-04): bổ sung mã `405 METHOD_NOT_ALLOWED` vào §1.3/§1.4/§14 để middleware trả ProblemDetails thống nhất cho lỗi framework. Bản 1.4 (P0-03): chốt D-07 (xác thực thiết bị), D-08 (pairing code + payload QR), D-09 (enum & `daysOfWeek`); chốt quy ước ProblemDetails và catalog lỗi. Bản 1.3 rà soát QA: bỏ tàn dư refresh token ở logout/reset-password sau khi chốt D-02.
 >
 > Tài liệu liên quan: [AGENTS.md](AGENTS.md) · [PLAN.md](PLAN.md) · [TASKS.md](TASKS.md)
 >
@@ -59,7 +59,7 @@
 
 - Endpoint người dùng **không** chấp nhận xác thực thiết bị; endpoint thiết bị **không** chấp nhận token người dùng.
 - Thiếu/sai thông tin xác thực thiết bị: `401 DEVICE_UNAUTHORIZED` (không tiết lộ thiết bị có tồn tại hay không).
-- `POST /api/devices/pair` và `POST /api/relatives/invitations/accept` phải **rate-limit theo người gọi + IP/token** dù đã đăng nhập, trả `429 RATE_LIMITED` kèm `Retry-After`; ngưỡng **[TBD-D14]**. Đây là chống brute-force mã/token ngắn, không thay thế kiểm tra quyền.
+- `POST /api/devices/pair` và `POST /api/relatives/invitations/accept` phải **rate-limit theo người gọi + IP/token** dù đã đăng nhập, trả `429 RATE_LIMITED` kèm `Retry-After`; ngưỡng theo **D-14 đã chốt** (§1.6). Đây là chống brute-force mã/token ngắn, không thay thế kiểm tra quyền.
 - Cookie session (D-02): cookie `HttpOnly`, `Secure`, `SameSite=Lax/Strict`, và mọi request ghi phải có CSRF token (antiforgery). Không dùng Bearer/JWT, không lưu token trong `localStorage`.
 - Pairing code, token và `DeviceApiKey` lưu dạng hash có **pepper/HMAC** phía server (không SHA-256 trần) để chống dò offline khi mã ngắn.
 - Endpoint thiết bị không tin đồng hồ thiết bị tuyệt đối: server dùng `occurredAt` để ghép nhưng trả `serverTimeUtc` để thiết bị chỉnh RTC; ngưỡng lệch theo **[TBD-D26]**.
@@ -76,6 +76,7 @@
 | `401 Unauthorized` | Thiếu/sai xác thực |
 | `403 Forbidden` | Đã xác thực nhưng không có quyền |
 | `404 Not Found` | Không tồn tại trong phạm vi người gọi được biết |
+| `405 Method Not Allowed` | Gọi sai HTTP method trên route đã tồn tại |
 | `409 Conflict` | Xung đột trạng thái/trùng lặp nghiệp vụ |
 | `410 Gone` | Token/mã đã hết hạn hoặc không còn hiệu lực |
 | `413 Payload Too Large` | File vượt 5 MB |
@@ -95,7 +96,7 @@
 - `403 FORBIDDEN` cho đã xác thực nhưng thiếu quyền; khi hợp đồng yêu cầu giấu tồn tại thì trả `404` với code tương ứng (`DEVICE_NOT_FOUND`, `SCHEDULE_NOT_FOUND`, …).
 - `429 RATE_LIMITED` bắt buộc kèm header `Retry-After` (đơn vị giây).
 - `500 INTERNAL_ERROR`: body chỉ có `code`, `traceId` và thông điệp chung; chi tiết chỉ ghi log nội bộ.
-- Lỗi do framework sinh ra (route không tồn tại, content-type không hỗ trợ) cũng phải đi qua middleware để cùng shape: route không tồn tại → `404 NOT_FOUND`; JSON endpoint nhận content-type không hỗ trợ → `415 UNSUPPORTED_MEDIA_TYPE` (upload ảnh vẫn dùng `415 FILE_TYPE_NOT_ALLOWED`).
+- Lỗi do framework sinh ra (route không tồn tại, sai method, content-type không hỗ trợ) cũng phải đi qua middleware để cùng shape: route không tồn tại → `404 NOT_FOUND`; sai method trên route đã tồn tại → `405 METHOD_NOT_ALLOWED`; JSON endpoint nhận content-type không hỗ trợ → `415 UNSUPPORTED_MEDIA_TYPE` (upload ảnh vẫn dùng `415 FILE_TYPE_NOT_ALLOWED`).
 
 ### 1.5. Xác thực thiết bị — D-07 (chốt 2026-10-29)
 
@@ -105,6 +106,32 @@
 - Thiếu/sai một trong hai header, hoặc `DeviceId` không tồn tại → cùng `401 DEVICE_UNAUTHORIZED`, không tiết lộ thiết bị có tồn tại.
 - Endpoint thiết bị chỉ chấp nhận cơ chế này; endpoint người dùng không chấp nhận header thiết bị và ngược lại.
 - Không log header/khóa; nếu log request thì phải che giá trị nhạy cảm.
+
+### 1.6. Chính sách mật khẩu, token và rate limit — D-14 (chốt 2026-10-29)
+
+**Mật khẩu** (áp dụng cho `register` và `reset-password`): tối thiểu **8** ký tự, tối đa **128**, phải có **ít nhất một chữ cái và một chữ số**; không cắt khoảng trắng, không chuẩn hóa Unicode ngầm; vi phạm → `400 VALIDATION_ERROR` với `errors.password`.
+
+**Token dùng một lần** (lưu HMAC-SHA256 + pepper, chỉ trả token thô trong email):
+
+| Token | TTL | Dùng lại |
+|---|---|---|
+| Xác minh email | **24 giờ** | `400 TOKEN_INVALID` |
+| Đặt lại mật khẩu | **24 giờ** | `400 TOKEN_INVALID` |
+| Lời mời người thân | **7 ngày** (`RelativeInvitations.ExpiresAt`) | `409 INVITE_NOT_PENDING` |
+| Pairing code | **15 phút** (D-08) | `409 PAIRING_CODE_USED` |
+
+**Rate limit** — đếm theo khóa ghi trong bảng, cửa sổ trượt (sliding window) **[ĐỀ XUẤT]**; vượt ngưỡng trả `429 RATE_LIMITED` + `Retry-After` (giây, làm tròn lên):
+
+| Endpoint | Khóa đếm | Ngưỡng |
+|---|---|---|
+| `POST /api/auth/login` | IP | **10 lần / 15 phút** |
+| `POST /api/devices/pair` | IP | **5 lần / phút** |
+| `POST /api/relatives/invitations` | Người gọi (chủ hộp) | **10 lần / ngày** |
+| `POST /api/relatives/invitations/accept` | IP | **10 lần / phút** |
+
+- Rate limit không thay thế kiểm tra quyền và không được tiết lộ tài khoản/mã có tồn tại hay không.
+- Ngưỡng phải đọc từ cấu hình (`IOptions`), giá trị trên là mặc định; thay đổi ngưỡng không phải thay đổi hợp đồng.
+- `register`, `forgot-password`, `resend-verification`, `verify-email`, `reset-password` cũng phải có rate limit **[ĐỀ XUẤT]**; ngưỡng cụ thể chưa nằm trong hợp đồng, không được dùng để thay đổi hành vi đã mô tả ở trên.
 
 ---
 
@@ -174,7 +201,7 @@
 }
 ```
 
-**Validation:** email hợp lệ, ≤ 320 ký tự, chuẩn hóa trim/lowercase; mật khẩu theo [TBD-D14] (đề xuất ≥ 8 ký tự, có chữ và số, ≤ 128).
+**Validation:** email hợp lệ, ≤ 320 ký tự, chuẩn hóa trim/lowercase; mật khẩu theo **D-14** (§1.6): ≥ 8 ký tự, ≤ 128, có chữ và số.
 
 **Responses**
 
@@ -464,7 +491,7 @@ Chỉ trả lịch chưa xóa mềm. `deviceId` là **bắt buộc** để phân
 
 - **Auth:** Chủ hộp · Body giống `POST` (thay thế toàn bộ ngày/thuốc) · **Response:** `200 { "id": "…", "scheduleVersion": 6 }`
 - Tăng `ScheduleVersion` trong transaction; **không** sửa `DoseInstances`/`DoseItemSnapshots` đã sinh.
-- **[TBD-D22]** Hành vi với các `DoseInstance` `Pending` đã sinh trong tương lai chưa được chốt: hợp đồng này **không** cho phép client hủy/tái sinh; server giữ nguyên cho tới khi có quyết định.
+- **D-22 đã chốt:** các `DoseInstance`/snapshot đã sinh (kể cả `Pending` trong tương lai) là **bất biến** — server giữ nguyên, không hủy/tái sinh khi lịch bị sửa/xóa; lịch mới chỉ áp dụng cho dose sinh **sau** thời điểm thay đổi.
 - **[TBD-D23]** Hai lịch chồng lấn cùng ngăn: chỉ chặn trùng tuyệt đối (cùng slot + giờ + khung ngày) **[ĐỀ XUẤT]**; chồng lấn một phần chưa chốt.
 - [ĐỀ XUẤT] Hỗ trợ `If-Match: <version>` để chống ghi đè đồng thời; không khớp → `409 SCHEDULE_VERSION_CONFLICT`.
 
@@ -514,7 +541,7 @@ Chỉ trả lịch chưa xóa mềm. `deviceId` là **bắt buộc** để phân
 | `409` | `RELATIONSHIP_EXISTS` (đã là người thân) |
 | `429` | `RATE_LIMITED` |
 
-- Gửi email chứa token **một lần** (server lưu hash, hạn **[TBD-D14]**).
+- Gửi email chứa token **một lần** (server lưu hash, hạn **7 ngày** theo D-14 — §1.6).
 - Chỉ chủ hộp mời; không giới hạn số lượng người thân, chỉ giới hạn tần suất.
 
 ### 6.2. `GET /api/relatives/invitations?deviceId={guid}` **[ĐỀ XUẤT]**
@@ -614,6 +641,8 @@ Chỉ trả lịch chưa xóa mềm. `deviceId` là **bắt buộc** để phân
         "compartmentSlot": 1,
         "scheduledAt": "2026-10-29T00:00:00Z",
         "deadlineAt": "2026-10-29T00:15:00Z",
+        "localDate": "2026-10-29",
+        "timeZoneId": "Asia/Ho_Chi_Minh",
         "status": "Unknown",
         "confirmedAt": null,
         "gracePeriodMinutes": 15,
@@ -645,7 +674,8 @@ Chỉ trả lịch chưa xóa mềm. `deviceId` là **bắt buộc** để phân
 ```
 
 - Trả **snapshot** thuốc tại thời điểm sinh dose, không phải dữ liệu lịch hiện tại.
-- `today.timeZoneId` chỉ rõ cách nhóm "hôm nay"; nếu một hộp có nhiều timezone (D-10 chưa chốt), client không được tự cộng/trừ giờ — server phải trả mốc UTC và timezone áp dụng cho từng dose.
+- `today.timeZoneId` là timezone **hiển thị** của hộp (mặc định `Asia/Ho_Chi_Minh`), chỉ dùng cho nhãn/tiêu đề trang.
+- **D-10 đã chốt:** mỗi lịch chọn `TimeZoneId` IANA riêng, nên mỗi dose mang thêm `timeZoneId` và `localDate` của chính lịch sinh ra nó. Một dose thuộc `today.doses` khi `localDate` của nó (tính theo `timeZoneId` của lịch đó) bằng ngày hiện tại **tại chính timezone đó**. Client không được quy đổi giờ dose bằng `today.timeZoneId` hay timezone trình duyệt.
 - `status` ∈ `Pending | Confirmed | Overdue | Unknown`; quy tắc chuyển trạng thái tại §10.4.
 - `device.isOnline` là trạng thái **hiện tại** theo `LastSeenAt`; không dùng field này để suy ngược trạng thái lịch sử của dose.
 - Không có trường/bản dịch nào khẳng định "đã uống".
@@ -849,7 +879,7 @@ X-Device-Api-Key: <khóa-thô-32-byte-base64url-lưu-trong-thiết-bị>
 - **Không đổi:** `204 No Content`.
 - `409 DEVICE_NOT_PAIRED`: thiết bị chưa có chủ.
 - Thiết bị chỉ thay lịch cục bộ khi nhận và áp dụng trọn gói; tải lỗi/parse lỗi phải giữ lịch cũ.
-- **[TBD-D22]** Gói lịch mới và tập `DoseInstances` server dùng để ghép phải nhất quán khi lịch bị sửa; chưa chốt cách xử lý dose tương lai.
+- **D-22 đã chốt:** dose đã sinh là bất biến, nên sau khi sửa lịch có thể còn dose tương lai theo lịch cũ. Gói sync chỉ mô tả **lịch hiện hành**; hợp đồng chấp nhận khoảng lệch này và giảm thiểu bằng horizon sinh dose ngắn (D-11). Thiết bị không được tự ý sửa/khôi phục dose phía server.
 
 ### 9.3. `POST /api/device/events/batch`
 
@@ -930,6 +960,8 @@ X-Device-Api-Key: <khóa-thô-32-byte-base64url-lưu-trong-thiết-bị>
   "compartmentSlot": 1,
   "scheduledAt": "ISO-8601 UTC",
   "deadlineAt": "ISO-8601 UTC",
+  "localDate": "yyyy-MM-dd",
+  "timeZoneId": "Asia/Ho_Chi_Minh",
   "status": "Pending | Confirmed | Overdue | Unknown",
   "confirmedAt": "ISO-8601 UTC | null",
   "gracePeriodMinutes": 15,
@@ -980,7 +1012,7 @@ X-Device-Api-Key: <khóa-thô-32-byte-base64url-lưu-trong-thiết-bị>
 - **Online tại deadline** nghĩa là `LastSeenAt >= DeadlineAt - ngưỡng offline`; không dùng thời điểm job chạy. `LastSeenAt = NULL` coi là offline.
 - Job đánh giá có thể chạy muộn; kết luận phải dựa trên dữ liệu tại `DeadlineAt`, không phải trạng thái hiện tại của thiết bị.
 - Không có trạng thái/field nào mang nghĩa "đã uống". `Confirmed` chỉ là "đã mở/đã xác nhận".
-- Sửa/xóa lịch không được đổi bất kỳ dòng nào ở trên; dose tương lai đã sinh xử lý theo **[TBD-D22]**.
+- Sửa/xóa lịch không được đổi bất kỳ dòng nào ở trên; dose tương lai đã sinh **giữ nguyên** theo **D-22** (bất biến; không hủy/tái sinh).
 
 ### 10.5. Vòng đời cảnh báo
 
@@ -1026,7 +1058,7 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 | Trường/nguồn | Quy tắc | Mã lỗi |
 |---|---|---|
 | `email` | Bắt buộc, đúng định dạng, ≤ 320, trim/lowercase | `VALIDATION_ERROR` |
-| `password` | **[TBD-D14]** đề xuất ≥ 8, ≤ 128, có chữ + số | `VALIDATION_ERROR` |
+| `password` | **D-14**: ≥ 8, ≤ 128, có ít nhất một chữ cái và một chữ số | `VALIDATION_ERROR` |
 | `pairing code` | 8 ký tự Crockford Base32 sau chuẩn hóa; chưa dùng; chưa quá 15 phút (D-08) | `PAIRING_CODE_INVALID` / `PAIRING_CODE_USED` / `PAIRING_CODE_EXPIRED` |
 | Header thiết bị | `X-Device-Id` 1–100 ký tự; `X-Device-Api-Key` base64url 43 ký tự; cả hai bắt buộc | `DEVICE_UNAUTHORIZED` |
 | CSRF token | Bắt buộc với mọi request ghi của người dùng (cookie session); thiếu/sai bị từ chối | `CSRF_INVALID` |
@@ -1036,7 +1068,7 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 | `startDate` / `endDate` | Ngày hợp lệ; `endDate` null hoặc ≥ `startDate` | `VALIDATION_ERROR` |
 | lịch trùng | Cùng `compartmentSlot` + `timeOfDay` + khung ngày giao nhau → từ chối **[ĐỀ XUẤT]**; chồng lấn một phần **[TBD-D23]** | `VALIDATION_ERROR` / `SCHEDULE_OVERLAP` **[nếu chốt]** |
 | `gracePeriodMinutes` | Số nguyên 1–120 | `VALIDATION_ERROR` |
-| `timeZoneId` | IANA hợp lệ; thuộc từng lịch; nguồn chọn **[TBD-D10]** | `SCHEDULE_INVALID_TIMEZONE` |
+| `timeZoneId` | IANA hợp lệ, kiểm tra bằng `TimeZoneInfo.FindSystemTimeZoneById` (.NET 6+ hỗ trợ IANA trên Windows lẫn Linux); bắt buộc, thuộc từng lịch; mặc định UI `Asia/Ho_Chi_Minh` — **D-10** | `SCHEDULE_INVALID_TIMEZONE` |
 | `items` | ≥ 1 phần tử | `VALIDATION_ERROR` |
 | `medicineName` | Bắt buộc, ≤ 200 | `VALIDATION_ERROR` |
 | `quantity` | > 0, tối đa `decimal(10,2)` | `VALIDATION_ERROR` |
@@ -1085,6 +1117,7 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 | `EMAIL_NOT_VERIFIED` | 403 | Chưa xác minh email |
 | `FORBIDDEN` | 403 | Không có quyền |
 | `NOT_FOUND` | 404 | Không tìm thấy |
+| `METHOD_NOT_ALLOWED` | 405 | Gọi sai HTTP method trên route đã tồn tại |
 | `DEVICE_NOT_FOUND` | 404 | Hộp không tồn tại/không thuộc quyền |
 | `DEVICE_NOT_PAIRED` | 409 | Thiết bị chưa được ghép |
 | `DEVICE_UNAUTHORIZED` | 401 | Sai `DeviceId`/`DeviceApiKey` |
@@ -1134,15 +1167,15 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 | D-02 | Cookie session hay JWT + refresh | `/api/auth/*`, `/api/users/me` | **Đã chốt 2026-10-29: cookie session + CSRF; không có `/auth/refresh`, không có `RefreshTokens`** |
 | D-03 | Email provider | Toàn bộ luồng email | P5-03 |
 | D-04 | Lưu file local hay blob | `/api/prescriptions/*` | P6-01 |
-| D-05 | Công cụ provision thiết bị | Không public API | P2-02 |
+| D-05 | Công cụ provision thiết bị | Không public API | **Đã chốt 2026-10-29: CLI nội bộ trong `tools/`; không có endpoint admin hay role admin (P2-02)** |
 | D-07 | Header xác thực thiết bị | `/api/device/*` | **Đã chốt 2026-10-29: `X-Device-Id` + `X-Device-Api-Key`; khóa 32 byte base64url; lưu HMAC+pepper; so sánh constant-time (P0-03)** |
 | D-08 | Định dạng pairing code, payload QR, hạn dùng | `/api/devices/pair` | **Đã chốt 2026-10-29: 8 ký tự Crockford Base32; TTL 15 phút; QR `{"v":1,"code":"<code>"}` (P0-03)** |
 | D-09 | Giá trị enum & `daysOfWeek` quy ước | Nhiều endpoint | **Đã chốt 2026-10-29: enum §10.2; `daysOfWeek` ISO-8601; `Channel = Email` (P0-03)** |
-| D-10 | Nguồn timezone; một hay nhiều timezone/hộp; dashboard "hôm nay" nhóm theo timezone nào | `/api/schedules`, dashboard | P3-01, P3-06 |
+| D-10 | Nguồn timezone; một hay nhiều timezone/hộp; dashboard "hôm nay" nhóm theo timezone nào | `/api/schedules`, dashboard | **Đã chốt 2026-10-29: `TimeZoneId` IANA theo từng lịch (mặc định `Asia/Ho_Chi_Minh`); một hộp có thể nhiều timezone; dashboard nhóm "hôm nay" theo từng dose (§7.1, §12)** |
 | D-11 | Horizon/tần suất sinh dose | `/api/dashboard`, history | P3-03 |
 | D-12 | Ngưỡng online/offline | `/api/devices/mine`, dashboard, alerts | P4-04 |
 | D-13 | Retry policy email | Không public API | P5-03 |
-| D-14 | Chính sách mật khẩu, TTL token, rate limit, hạn lời mời | Auth, invitations | P1-04, P1-06, P2-09 |
+| D-14 | Chính sách mật khẩu, TTL token, rate limit, hạn lời mời | Auth, invitations | **Đã chốt 2026-10-29: mật khẩu ≥ 8 chữ+số ≤ 128; token 24 giờ; lời mời 7 ngày; login 10/15 phút/IP, pair 5/phút/IP, invitation 10/ngày, accept 10/phút/IP (§1.6)** |
 | D-15 | Xác nhận muộn sau Overdue | Events batch, history | Đã gộp vào D-24 |
 | D-16 | Ảnh trùng & retention sau xóa | Prescriptions | P6-02, P6-04 |
 | D-17 | Ẩn danh dữ liệu khi xóa tài khoản | (chưa có endpoint) | P7-06 |
@@ -1150,11 +1183,12 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 | D-19 | Retention log/audit/ảnh | Không public API | P6-05, P7-01, P7-04, P7-06 |
 | D-20 | Hình thức quét QR trên Web | `/api/devices/pair` (UI) | P2-03, UI-02 |
 | D-21 | Độ bền queue sự kiện khi mất điện | Không public API | HW-03 |
-| D-22 | Sửa lịch & dose tương lai đã sinh; nhất quán với schedule-sync | `/api/schedules/*`, `/api/device/schedule-sync`, `/api/device/events/batch` | P3-02, P3-03, P3-04 |
+| D-22 | Sửa lịch & dose tương lai đã sinh; nhất quán với schedule-sync | `/api/schedules/*`, `/api/device/schedule-sync`, `/api/device/events/batch` | **Đã chốt 2026-10-29: giữ nguyên dose đã sinh (bất biến); lịch mới chỉ áp dụng cho dose sinh sau; horizon ngắn theo D-11** |
 | D-23 | Lịch trùng/chồng lấn cùng ngăn | `/api/schedules` | P3-02, P3-03 |
 | D-24 | Vòng đời cảnh báo, xác nhận muộn, `ResolvedAt`, recipient bị thu hồi sau khi tạo alert | `/api/device/events/batch`, `/api/alerts` | P3-05, P4-03, P5-02 |
 | D-25 | Cách ESP32 nhận Wi‑Fi/server URL khi onboarding | Không public API | HW-01, HW-04 |
 | D-26 | Ngưỡng lệch giờ/RTC, event quá cũ/tương lai | `/api/device/*` | P4-02, HW-02, HW-04 |
+| D-27 | Lưu trữ session server-side (in-memory/durable) và TTL session | `/api/auth/login`, `/api/auth/logout`, mọi endpoint người dùng | P7-03 (P1-03 đang dùng in-memory + TTL 8 giờ theo [ĐỀ XUẤT]) |
 
 ---
 
@@ -1165,7 +1199,8 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 - Mọi endpoint thiết bị phải xác thực `DeviceId + DeviceApiKey` qua header `X-Device-Id` + `X-Device-Api-Key` (D-07); `X-Device-Id` là `Devices.DeviceId`, không phải `SerialNumber`; không chấp nhận token người dùng.
 - Không endpoint nào được trả `DeviceApiKey`, hash, pairing code thô hoặc đường dẫn vật lý.
 - Nội dung hiển thị/email phải theo [AGENTS.md](AGENTS.md) §2.2: "đã mở/đã xác nhận", không "đã uống".
-- `ScheduleVersion` là **cấp thiết bị**, tăng khi tạo/sửa/xóa mềm bất kỳ lịch; `timeZoneId` thuộc từng lịch.
+- `ScheduleVersion` là **cấp thiết bị**, tăng khi tạo/sửa/xóa mềm bất kỳ lịch; `timeZoneId` thuộc từng lịch (D-10).
+- Dose đã sinh là bất biến khi lịch thay đổi (D-22); không endpoint nào cho phép client hủy/tái sinh dose.
 - Đánh giá `Overdue`/`Unknown` dùng trạng thái kết nối tại `DeadlineAt`, không dùng thời điểm job chạy.
 - `resolvedAt` chưa có quy tắc set (D-24); client không được suy diễn từ `null`.
 - `occurredAt` của thiết bị là nguồn thời gian ghép; server trả `serverTimeUtc` để đồng bộ RTC (D-26).

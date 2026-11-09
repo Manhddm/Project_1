@@ -1,12 +1,12 @@
-using Microsoft.AspNetCore.Mvc.Testing;
+using SmartMedBox.IntegrationTests.TestSupport;
 
 namespace SmartMedBox.IntegrationTests;
 
-public sealed class HomePageTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class HomePageTests : IClassFixture<TestApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly TestApplicationFactory _factory;
 
-    public HomePageTests(WebApplicationFactory<Program> factory)
+    public HomePageTests(TestApplicationFactory factory)
     {
         _factory = factory;
     }

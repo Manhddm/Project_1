@@ -5,6 +5,9 @@
 [Ll]og/
 [Ll]ogs/
 
+## Runtime private data (email dev sink, uploaded prescription images)
+App_Data/
+
 ## Visual Studio / Rider / VS Code
 .vs/
 .idea/
@@ -45,5 +48,10 @@ desktop.ini
 
 ## ASP.NET Core / secrets
 appsettings.*.local.json
+.env
+.env.*
+!.env.example
 *.pfx
 *.p12
+*.key
+*.pem

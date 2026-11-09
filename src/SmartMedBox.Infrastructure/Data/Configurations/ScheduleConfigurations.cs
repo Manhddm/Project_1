@@ -10,7 +10,12 @@ public sealed class MedicationScheduleConfiguration : IEntityTypeConfiguration<M
     public void Configure(EntityTypeBuilder<MedicationSchedule> builder)
     {
         builder.ToTable("MedicationSchedules", table =>
-            table.HasCheckConstraint("CK_MedicationSchedules_Grace", "[GracePeriodMinutes] BETWEEN 1 AND 120"));
+        {
+            table.HasCheckConstraint("CK_MedicationSchedules_Grace", "[GracePeriodMinutes] BETWEEN 1 AND 120");
+            table.HasCheckConstraint(
+                "CK_MedicationSchedules_DateRange",
+                "[EndDate] IS NULL OR [EndDate] >= [StartDate]");
+        });
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
         builder.Property(x => x.TimeOfDay).HasColumnType("time(0)");

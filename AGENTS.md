@@ -250,7 +250,7 @@ Quy tắc cấu trúc:
 - `DeviceApiKey`: 32 byte từ CSPRNG, mã hóa base64url; chỉ hiển thị một lần khi provision; server lưu `HMAC-SHA256(pepper, key)`, so sánh constant-time. Header: `X-Device-Id` + `X-Device-Api-Key` (D-07 đã chốt).
 - QR chỉ chứa pairing code.
 - Phân quyền kiểm tra ở **Server** cho mọi endpoint, theo từng hộp; trả 403 thay vì 404 gây lộ tồn tại khi phù hợp.
-- Rate limit: lời mời người thân (bắt buộc), endpoint auth (đề xuất), **pair và accept token (bắt buộc)**; trả 429 kèm `Retry-After`. Ngưỡng cụ thể **[TBD-D14]**.
+- Rate limit: lời mời người thân (bắt buộc), endpoint auth (đề xuất), **pair và accept token (bắt buộc)**; trả 429 kèm `Retry-After`. **D-14 đã chốt:** login 10 lần/15 phút/IP; pair 5 lần/phút/IP; invitation 10 lần/ngày; accept 10 lần/phút/IP; mật khẩu ≥ 8 ký tự có chữ + số (≤ 128); token xác minh/đặt lại mật khẩu TTL 24 giờ; lời mời hết hạn sau 7 ngày (xem [API_CONTRACT.md](API_CONTRACT.md) §1.6).
 - Cookie session (D-02): `HttpOnly`, `Secure`, `SameSite`, CSRF token cho mọi request ghi. D-01 dùng Razor cùng origin nên không mở CORS; không dùng `Access-Control-Allow-Origin: *` cho endpoint có credential.
 - Hash pairing code/token/`DeviceApiKey` bằng HMAC/pepper phía server, không SHA-256 trần; pepper trong secret store.
 - `forgot-password`, `resend-verification`, `pair`, `accept` không được tiết lộ tài khoản/mã có tồn tại hay không.

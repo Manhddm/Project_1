@@ -1,0 +1,1527 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Bản tổng hợp yêu cầu MVP cho đồ án Hộp thuốc thông minh: thiết bị ESP32, Web API, lịch uống, cảnh báo, phân quyền và ghép hộp bằng QR.">
+  <title>Hộp thuốc thông minh — Bản đồ yêu cầu MVP</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b1739'/%3E%3Cpath d='M19 25h26v22H19z' fill='%23fff'/%3E%3Cpath d='M24 17h16a5 5 0 0 1 5 5v3H19v-3a5 5 0 0 1 5-5z' fill='%2334d3c7'/%3E%3Cpath d='M32 30v12M26 36h12' stroke='%230b1739' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --ink: #0b1739;
+      --ink-2: #263454;
+      --muted: #66728c;
+      --paper: #f6f8fc;
+      --white: #ffffff;
+      --line: #dce3ef;
+      --soft: #eaf0f8;
+      --teal: #0f9f95;
+      --teal-dark: #08746d;
+      --teal-soft: #dff7f4;
+      --amber: #f4a724;
+      --amber-soft: #fff3d8;
+      --coral: #ef6b62;
+      --coral-soft: #ffebe8;
+      --blue: #2f6fec;
+      --blue-soft: #e9f0ff;
+      --green: #2a9d62;
+      --green-soft: #e4f6ec;
+      --shadow: 0 20px 55px rgba(11, 23, 57, .09);
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 10px;
+      --content: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 92% 2%, rgba(52, 211, 199, .13), transparent 24rem),
+        radial-gradient(circle at 4% 16%, rgba(47, 111, 236, .08), transparent 26rem),
+        var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, a { font: inherit; }
+    a { color: inherit; }
+    svg { display: block; max-width: 100%; }
+    code {
+      padding: .12rem .38rem;
+      border: 1px solid #d9e2f2;
+      border-radius: 6px;
+      background: #f4f7fc;
+      color: #24447e;
+      font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      font-size: .88em;
+      overflow-wrap: anywhere;
+    }
+
+    .progress {
+      position: fixed;
+      inset: 0 auto auto 0;
+      z-index: 100;
+      width: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--teal), var(--blue), var(--amber));
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      border-bottom: 1px solid rgba(220, 227, 239, .9);
+      background: rgba(246, 248, 252, .9);
+      backdrop-filter: blur(16px);
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      width: min(var(--content), calc(100% - 32px));
+      min-height: 68px;
+      margin: 0 auto;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex: 0 0 auto;
+      font-size: .95rem;
+      font-weight: 800;
+      text-decoration: none;
+      letter-spacing: -.01em;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 11px;
+      background: var(--ink);
+      color: white;
+      box-shadow: 0 8px 18px rgba(11, 23, 57, .16);
+    }
+
+    .brand-mark svg { width: 21px; height: 21px; }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      margin-left: auto;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .nav::-webkit-scrollbar { display: none; }
+    .nav a {
+      flex: 0 0 auto;
+      padding: 8px 11px;
+      border-radius: 9px;
+      color: var(--muted);
+      font-size: .84rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: color .2s ease, background .2s ease;
+    }
+    .nav a:hover, .nav a.active { color: var(--ink); background: white; }
+
+    .print-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex: 0 0 auto;
+      min-height: 40px;
+      padding: 8px 14px;
+      border: 0;
+      border-radius: 11px;
+      background: var(--ink);
+      color: white;
+      cursor: pointer;
+      font-weight: 800;
+      box-shadow: 0 8px 20px rgba(11, 23, 57, .15);
+    }
+    .print-button:hover { background: #172752; }
+    .print-button svg { width: 17px; height: 17px; }
+
+    main { overflow: hidden; }
+    .container { width: min(var(--content), calc(100% - 32px)); margin: 0 auto; }
+
+    .hero { padding: 72px 0 42px; }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.12fr) minmax(360px, .88fr);
+      gap: 54px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      padding: 7px 11px;
+      border: 1px solid #cde8e6;
+      border-radius: 999px;
+      background: var(--teal-soft);
+      color: var(--teal-dark);
+      font-size: .82rem;
+      font-weight: 850;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--teal);
+      content: "";
+      box-shadow: 0 0 0 4px rgba(15, 159, 149, .12);
+    }
+
+    h1, h2, h3, h4 { margin: 0; line-height: 1.15; letter-spacing: -.035em; }
+    h1 { max-width: 760px; font-size: clamp(2.6rem, 6vw, 5.2rem); }
+    h1 span { color: var(--teal-dark); }
+    h2 { font-size: clamp(2rem, 3.5vw, 3.25rem); }
+    h3 { font-size: 1.25rem; }
+    h4 { font-size: 1rem; letter-spacing: -.01em; }
+
+    .hero-copy > p {
+      max-width: 700px;
+      margin: 24px 0 26px;
+      color: var(--ink-2);
+      font-size: clamp(1.05rem, 1.7vw, 1.22rem);
+    }
+
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 10px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.78);
+      color: var(--ink-2);
+      font-size: .87rem;
+      font-weight: 750;
+    }
+    .pill svg { width: 16px; height: 16px; color: var(--teal-dark); }
+
+    .device-stage {
+      position: relative;
+      min-height: 430px;
+      display: grid;
+      place-items: center;
+    }
+    .device-stage::before {
+      position: absolute;
+      width: 390px;
+      height: 390px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(52,211,199,.2), rgba(47,111,236,.05) 52%, transparent 70%);
+      content: "";
+    }
+    .device {
+      position: relative;
+      z-index: 1;
+      width: min(440px, 96%);
+      padding: 22px;
+      border: 1px solid rgba(255,255,255,.6);
+      border-radius: 32px;
+      background: linear-gradient(145deg, #142550, #09142f);
+      box-shadow: 0 34px 70px rgba(11, 23, 57, .28), inset 0 1px rgba(255,255,255,.14);
+      transform: rotate(1.5deg);
+    }
+    .device-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; color: #c7d5f5; }
+    .device-logo { font-size: .78rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+    .wifi { display: flex; gap: 6px; align-items: center; font-size: .74rem; }
+    .wifi-dot { width: 8px; height: 8px; border-radius: 50%; background: #43dd9b; box-shadow: 0 0 0 5px rgba(67,221,155,.12); }
+    .compartments { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .compartment {
+      min-height: 155px;
+      padding: 15px 12px;
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: 18px;
+      background: rgba(255,255,255,.07);
+      color: white;
+    }
+    .compartment.active {
+      border-color: rgba(244,167,36,.7);
+      background: linear-gradient(180deg, rgba(244,167,36,.32), rgba(244,167,36,.1));
+      box-shadow: inset 0 0 26px rgba(244,167,36,.14), 0 0 25px rgba(244,167,36,.13);
+    }
+    .compartment-number { display: grid; place-items: center; width: 34px; height: 34px; margin-bottom: 28px; border-radius: 10px; background: rgba(255,255,255,.1); font-weight: 850; }
+    .compartment.active .compartment-number { background: var(--amber); color: var(--ink); }
+    .compartment strong { display: block; font-size: 1rem; }
+    .compartment small { color: #aebcdb; }
+    .compartment.active small { color: #ffe3a5; }
+    .device-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; color: #aebcdb; font-size: .73rem; }
+    .device-caption {
+      position: absolute;
+      z-index: 2;
+      right: 0;
+      bottom: 16px;
+      width: 205px;
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: white;
+      box-shadow: var(--shadow);
+      color: var(--ink-2);
+      font-size: .82rem;
+      line-height: 1.45;
+    }
+    .device-caption strong { display: block; margin-bottom: 3px; color: var(--ink); }
+
+    section { padding: 74px 0; }
+    section:nth-of-type(even) { background: rgba(255,255,255,.55); }
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(220px, .68fr) minmax(300px, 1fr);
+      gap: 40px;
+      align-items: end;
+      margin-bottom: 34px;
+    }
+    .section-kicker { margin-bottom: 9px; color: var(--teal-dark); font-size: .8rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+    .section-head p { max-width: 660px; margin: 0; color: var(--muted); font-size: 1.03rem; }
+
+    .grid { display: grid; gap: 18px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .card {
+      position: relative;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 10px 28px rgba(11,23,57,.045);
+    }
+    .card p { margin: 10px 0 0; color: var(--muted); }
+    .card-icon {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      margin-bottom: 18px;
+      border-radius: 12px;
+      background: var(--teal-soft);
+      color: var(--teal-dark);
+    }
+    .card-icon svg { width: 22px; height: 22px; }
+    .card-number {
+      position: absolute;
+      top: 18px;
+      right: 20px;
+      color: #d7dfec;
+      font-size: 1.8rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .decision-card { border-top: 4px solid var(--teal); }
+    .decision-card:nth-child(2) { border-top-color: var(--blue); }
+    .decision-card:nth-child(3) { border-top-color: var(--amber); }
+    .decision-card:nth-child(4) { border-top-color: var(--coral); }
+    .decision-card:nth-child(5) { border-top-color: #7858d8; }
+    .decision-card:nth-child(6) { border-top-color: var(--green); }
+
+    .scope-strip {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 16px;
+      align-items: center;
+      margin-top: 22px;
+      padding: 18px 20px;
+      border: 1px solid #cfe4e2;
+      border-radius: 14px;
+      background: var(--teal-soft);
+    }
+    .scope-strip strong { color: var(--teal-dark); }
+    .scope-strip p { margin: 0; color: #295a57; }
+
+    .architecture {
+      display: grid;
+      grid-template-columns: 1fr 64px 1fr 64px 1fr;
+      align-items: stretch;
+      gap: 12px;
+    }
+    .arch-node {
+      display: flex;
+      flex-direction: column;
+      min-height: 250px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: white;
+      box-shadow: var(--shadow);
+    }
+    .arch-node.hardware { background: linear-gradient(145deg, #10224d, #0b1739); color: white; border-color: #263b68; }
+    .arch-node.server { border-top: 5px solid var(--teal); }
+    .arch-node.web { border-top: 5px solid var(--blue); }
+    .arch-node p { margin: 12px 0 18px; color: var(--muted); }
+    .arch-node.hardware p { color: #b9c6e3; }
+    .arch-tags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: auto; }
+    .arch-tags span { padding: 5px 8px; border-radius: 7px; background: var(--soft); color: var(--ink-2); font-size: .75rem; font-weight: 800; }
+    .hardware .arch-tags span { background: rgba(255,255,255,.1); color: #dfe7fa; }
+    .arch-arrow { display: grid; place-items: center; color: var(--teal-dark); }
+    .arch-arrow svg { width: 50px; }
+    .arch-arrow small { display: block; margin-top: 7px; font-size: .67rem; font-weight: 850; text-align: center; }
+
+    .stack-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+    .stack-line b { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); }
+
+    .flow {
+      counter-reset: step;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .flow-step {
+      position: relative;
+      min-height: 194px;
+      padding: 55px 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: white;
+    }
+    .flow-step::before {
+      counter-increment: step;
+      position: absolute;
+      top: 16px;
+      left: 18px;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 9px;
+      background: var(--ink);
+      color: white;
+      content: counter(step);
+      font-size: .8rem;
+      font-weight: 900;
+    }
+    .flow-step:not(:last-child)::after {
+      position: absolute;
+      top: 29px;
+      right: -14px;
+      z-index: 2;
+      width: 14px;
+      height: 2px;
+      background: var(--teal);
+      content: "";
+    }
+    .flow-step p { margin: 8px 0 0; color: var(--muted); font-size: .91rem; }
+
+    .rule-board {
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .rule-primary {
+      padding: 27px;
+      border-radius: 20px;
+      background: var(--ink);
+      color: white;
+    }
+    .rule-primary p { margin: 11px 0 0; color: #c2cee8; }
+    .rule-primary strong { color: #7de5dc; }
+    .rule-list { display: grid; gap: 10px; }
+    .rule-item { display: grid; grid-template-columns: 32px 1fr; gap: 11px; padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: white; }
+    .rule-item .mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; font-weight: 900; }
+    .rule-item.ok .mark { background: var(--green-soft); color: var(--green); }
+    .rule-item.no .mark { background: var(--coral-soft); color: var(--coral); }
+    .rule-item.warn .mark { background: var(--amber-soft); color: #9a6300; }
+    .rule-item p { margin: 2px 0 0; color: var(--muted); font-size: .9rem; }
+
+    .state-map { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
+    .state {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: white;
+    }
+    .status { display: inline-flex; align-items: center; gap: 7px; padding: 5px 9px; border-radius: 999px; font-size: .76rem; font-weight: 900; }
+    .status.pending { background: var(--blue-soft); color: var(--blue); }
+    .status.confirmed { background: var(--green-soft); color: var(--green); }
+    .status.overdue { background: var(--coral-soft); color: #b63f38; }
+    .status.unknown { background: #edf0f5; color: #536079; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .state p { margin: 10px 0 0; color: var(--muted); font-size: .88rem; }
+
+    .offline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .offline-scene {
+      padding: 28px;
+      border-radius: 20px;
+      background: linear-gradient(145deg, #15254d, #0b1739);
+      color: white;
+    }
+    .offline-scene p { color: #c0cce4; }
+    .queue { margin-top: 24px; padding-left: 0; list-style: none; }
+    .queue li { display: grid; grid-template-columns: 32px 1fr; gap: 12px; align-items: center; padding: 11px 0; border-top: 1px solid rgba(255,255,255,.12); }
+    .queue-num { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: rgba(52,211,199,.15); color: #73e3da; font-size: .76rem; font-weight: 900; }
+    .offline-rules { display: grid; gap: 12px; }
+    .offline-rule { padding: 19px; border: 1px solid var(--line); border-radius: 15px; background: white; }
+    .offline-rule strong { display: block; }
+    .offline-rule p { margin: 5px 0 0; color: var(--muted); }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: white; }
+    table { width: 100%; border-collapse: collapse; min-width: 720px; }
+    th, td { padding: 15px 17px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: #f2f5fa; color: var(--ink-2); font-size: .78rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+    td { color: var(--ink-2); }
+    tr:last-child td { border-bottom: 0; }
+    .yes { color: var(--green); font-weight: 900; }
+    .nope { color: var(--coral); font-weight: 900; }
+    .note { color: var(--muted); font-size: .88rem; }
+
+    .identity-map { display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: stretch; margin-top: 18px; }
+    .identity-card { padding: 25px; border: 1px solid var(--line); border-radius: 18px; background: white; }
+    .identity-card.owner { border-top: 5px solid var(--teal); }
+    .identity-card.relative { border-top: 5px solid var(--blue); }
+    .identity-arrow { display: grid; place-items: center; color: var(--muted); font-size: 1.6rem; }
+    .mini-list { margin: 15px 0 0; padding: 0; list-style: none; }
+    .mini-list li { position: relative; margin: 8px 0; padding-left: 20px; color: var(--ink-2); }
+    .mini-list li::before { position: absolute; left: 0; top: .62em; width: 7px; height: 7px; border-radius: 50%; background: var(--teal); content: ""; }
+    .relative .mini-list li::before { background: var(--blue); }
+
+    .schedule-example {
+      display: grid;
+      grid-template-columns: .9fr 1.1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+    .schedule-form { padding: 25px; border: 1px solid var(--line); border-radius: 18px; background: white; }
+    .field { margin-top: 17px; }
+    .field-label { display: block; margin-bottom: 7px; color: var(--muted); font-size: .76rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+    .fake-input { display: flex; flex-wrap: wrap; gap: 8px; min-height: 46px; padding: 10px 12px; border: 1px solid #cfd8e8; border-radius: 10px; background: #fbfcff; }
+    .day { padding: 3px 7px; border-radius: 6px; background: var(--blue-soft); color: var(--blue); font-size: .82rem; font-weight: 850; }
+    .medicine-list { display: grid; gap: 10px; }
+    .medicine { padding: 17px; border: 1px solid rgba(255,255,255,.12); border-radius: 13px; background: rgba(255,255,255,.07); }
+    .medicine strong { color: white; }
+    .medicine p { margin: 5px 0 0; color: #bac6df; font-size: .9rem; }
+    .snapshot { padding: 25px; border-radius: 18px; background: var(--ink); color: white; }
+    .snapshot > p { color: #bac6df; }
+    .snapshot-label { display: inline-block; margin-bottom: 15px; padding: 5px 8px; border-radius: 6px; background: rgba(52,211,199,.16); color: #72e1d8; font-size: .74rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+    .snapshot-foot { margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,.13); color: #e7edfb; font-size: .9rem; }
+
+    .pair-flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+    .pair-step { position: relative; padding: 20px; border: 1px solid var(--line); border-radius: 15px; background: white; }
+    .pair-step .step-tag { display: inline-block; margin-bottom: 16px; color: var(--teal-dark); font-size: .76rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+    .pair-step p { margin: 8px 0 0; color: var(--muted); font-size: .9rem; }
+    .pair-step:not(:last-child)::after { position: absolute; top: 26px; right: -10px; z-index: 3; color: var(--teal-dark); content: "→"; font-weight: 900; }
+    .security-note { display: grid; grid-template-columns: auto 1fr; gap: 13px; margin-top: 18px; padding: 19px; border: 1px solid #f0d08b; border-radius: 14px; background: var(--amber-soft); color: #6f4c0c; }
+    .security-note svg { width: 22px; height: 22px; margin-top: 2px; }
+
+    .api-layout { display: grid; grid-template-columns: 280px 1fr; gap: 18px; }
+    .api-aside { padding: 24px; border-radius: 18px; background: var(--ink); color: white; }
+    .api-aside p { color: #bac6df; }
+    .api-aside .big { display: block; margin: 18px 0 2px; color: #72e1d8; font-size: 2.6rem; font-weight: 900; line-height: 1; }
+    .api-list { display: grid; gap: 10px; }
+    .api-row { display: grid; grid-template-columns: 86px 1fr; gap: 13px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 13px; background: white; }
+    .method { align-self: start; padding: 5px 7px; border-radius: 6px; background: var(--blue-soft); color: var(--blue); font-family: "Cascadia Code", Consolas, monospace; font-size: .74rem; font-weight: 900; text-align: center; }
+    .method.post { background: var(--green-soft); color: var(--green); }
+    .method.delete { background: var(--coral-soft); color: var(--coral); }
+    .api-row p { margin: 4px 0 0; color: var(--muted); font-size: .87rem; }
+    .api-row code { display: inline-block; }
+
+    .alert-pipeline { display: grid; grid-template-columns: 1fr 44px 1fr 44px 1fr; gap: 8px; align-items: center; }
+    .pipeline-node { min-height: 150px; padding: 21px; border: 1px solid var(--line); border-radius: 16px; background: white; }
+    .pipeline-node.highlight { background: var(--coral-soft); border-color: #f6c4bf; }
+    .pipeline-node p { margin: 8px 0 0; color: var(--muted); font-size: .9rem; }
+    .pipe-arrow { color: var(--coral); text-align: center; font-size: 1.4rem; font-weight: 900; }
+
+    .photo-policy { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 20px; }
+    .photo-card { padding: 23px; border: 1px solid var(--line); border-radius: 17px; background: white; }
+    .photo-card.allowed { border-left: 5px solid var(--green); }
+    .photo-card.blocked { border-left: 5px solid var(--coral); }
+
+    .milestones { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+    .milestone { position: relative; padding: 22px 18px; border: 1px solid var(--line); border-radius: 16px; background: white; }
+    .milestone::before { display: grid; place-items: center; width: 36px; height: 36px; margin-bottom: 17px; border-radius: 11px; background: var(--ink); color: white; content: attr(data-step); font-weight: 900; }
+    .milestone p { margin: 8px 0 0; color: var(--muted); font-size: .88rem; }
+    .milestone.mvp { border-color: #b9e0dc; background: var(--teal-soft); }
+    .milestone.mvp::after { display: inline-block; margin-top: 13px; padding: 4px 7px; border-radius: 6px; background: var(--teal-dark); color: white; content: "MỐC MVP"; font-size: .68rem; font-weight: 900; letter-spacing: .05em; }
+
+    .acceptance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .check {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 12px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: white;
+    }
+    .check-mark { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 9px; background: var(--green-soft); color: var(--green); font-weight: 900; }
+    .check p { margin: 4px 0 0; color: var(--muted); font-size: .9rem; }
+
+    .db-principles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .db-principle { padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+    .db-principle strong { display: block; margin-bottom: 5px; }
+    .db-principle p { margin: 0; color: var(--muted); font-size: .9rem; }
+    .db-principle code { color: var(--teal-dark); }
+
+    .erd-shell { overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: white; box-shadow: var(--shadow); }
+    .erd-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 17px 20px; border-bottom: 1px solid var(--line); background: #f3f6fb; }
+    .erd-toolbar p { margin: 0; color: var(--muted); font-size: .86rem; }
+    .erd-legend { display: flex; flex-wrap: wrap; gap: 8px; }
+    .erd-legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: .75rem; font-weight: 800; }
+    .erd-legend i { width: 12px; height: 12px; border-radius: 4px; background: var(--teal); }
+    .erd-legend span:nth-child(2) i { background: var(--blue); }
+    .erd-legend span:nth-child(3) i { background: var(--amber); }
+    .erd-legend span:nth-child(4) i { background: var(--coral); }
+    .erd-scroll { overflow-x: auto; padding: 14px; outline: none; }
+    .erd-scroll:focus-visible { box-shadow: inset 0 0 0 3px rgba(47,111,236,.25); }
+    .erd-svg { width: 100%; min-width: 980px; height: auto; }
+    .erd-svg .group-bg { fill: #f8faff; stroke: #dce3ef; stroke-width: 1.5; }
+    .erd-svg .entity { fill: white; stroke: #cfd9ea; stroke-width: 1.3; }
+    .erd-svg .identity-head { fill: #0f9f95; }
+    .erd-svg .device-head-svg { fill: #2f6fec; }
+    .erd-svg .schedule-head { fill: #f4a724; }
+    .erd-svg .alert-head { fill: #ef6b62; }
+    .erd-svg .entity-title { fill: white; font-size: 12px; font-weight: 800; }
+    .erd-svg .entity-key { fill: #263454; font-size: 10.5px; font-weight: 700; }
+    .erd-svg .group-title { fill: #66728c; font-size: 12px; font-weight: 900; letter-spacing: 1.1px; }
+    .erd-svg .rel-line { fill: none; stroke: #8c9ab5; stroke-width: 1.5; marker-end: url(#erdArrow); }
+    .erd-svg .rel-dash { stroke-dasharray: 5 5; }
+    .erd-svg .rel-label { fill: #536079; font-size: 10px; font-weight: 800; paint-order: stroke; stroke: white; stroke-width: 4px; stroke-linejoin: round; }
+
+    .db-relations { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+    .relation-card { padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+    .relation-card .cardinality { display: inline-block; margin-bottom: 9px; padding: 4px 8px; border-radius: 6px; background: var(--blue-soft); color: var(--blue); font-family: "Cascadia Code", Consolas, monospace; font-size: .75rem; font-weight: 900; }
+    .relation-card p { margin: 5px 0 0; color: var(--muted); font-size: .88rem; }
+
+    .entity-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+    .entity-group { overflow: hidden; border: 1px solid var(--line); border-radius: 17px; background: white; }
+    .entity-group-head { padding: 18px 20px; border-bottom: 1px solid var(--line); background: #f3f6fb; }
+    .entity-group-head p { margin: 5px 0 0; color: var(--muted); font-size: .88rem; }
+    .schema-row { padding: 17px 20px; border-bottom: 1px solid var(--line); }
+    .schema-row:last-child { border-bottom: 0; }
+    .schema-row-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+    .schema-row-title strong { font-family: "Cascadia Code", Consolas, monospace; font-size: .94rem; }
+    .schema-role { color: var(--muted); font-size: .78rem; }
+    .schema-fields { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+    .schema-fields code { font-size: .73rem; }
+    .schema-note { margin: 8px 0 0; color: var(--muted); font-size: .82rem; }
+
+    .snapshot-explain { display: grid; grid-template-columns: auto 1fr; gap: 16px; margin-top: 20px; padding: 22px; border: 1px solid #f0d08b; border-radius: 16px; background: var(--amber-soft); }
+    .snapshot-explain .snapshot-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 13px; background: white; color: #9a6300; font-size: 1.2rem; font-weight: 900; }
+    .snapshot-explain p { margin: 6px 0 0; color: #6f4c0c; }
+
+    .db-flow { counter-reset: dbstep; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+    .db-flow-step { position: relative; min-height: 180px; padding: 50px 17px 18px; border: 1px solid var(--line); border-radius: 15px; background: white; }
+    .db-flow-step::before { counter-increment: dbstep; position: absolute; top: 15px; left: 17px; display: grid; place-items: center; width: 27px; height: 27px; border-radius: 8px; background: var(--teal-soft); color: var(--teal-dark); content: counter(dbstep); font-size: .77rem; font-weight: 900; }
+    .db-flow-step:not(:last-child)::after { position: absolute; top: 26px; right: -10px; z-index: 2; color: var(--teal-dark); content: "→"; font-weight: 900; }
+    .db-flow-step p { margin: 7px 0 0; color: var(--muted); font-size: .86rem; }
+    .db-flow-step code { font-size: .76rem; }
+
+    .db-ops { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+    .db-op { padding: 20px; border: 1px solid var(--line); border-radius: 15px; background: white; }
+    .db-op p { margin: 7px 0 0; color: var(--muted); font-size: .89rem; }
+    .db-op ul { margin: 10px 0 0; padding-left: 19px; color: var(--ink-2); }
+    .db-op li { margin: 6px 0; }
+
+    .api-db-table { margin-top: 20px; }
+    .api-db-table table { min-width: 780px; }
+
+    .future {
+      display: grid;
+      grid-template-columns: .9fr 1.1fr;
+      gap: 26px;
+      padding: 34px;
+      border-radius: 24px;
+      background: linear-gradient(145deg, #0c1837, #162957);
+      color: white;
+      box-shadow: var(--shadow);
+    }
+    .future p { color: #bdc9e2; }
+    .future-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .future-item { padding: 15px; border: 1px solid rgba(255,255,255,.12); border-radius: 13px; background: rgba(255,255,255,.06); color: #e6ecfa; }
+    .future-item small { display: block; margin-top: 3px; color: #aebbd8; }
+
+    .final-note { padding: 50px 0 80px; }
+    .final-box { display: grid; grid-template-columns: 1fr auto; gap: 30px; align-items: center; padding: 30px; border: 1px solid #cfe4e2; border-radius: 20px; background: var(--teal-soft); }
+    .final-box p { margin: 8px 0 0; color: #315c59; }
+    .stamp { padding: 13px 16px; border: 2px solid var(--teal-dark); border-radius: 12px; color: var(--teal-dark); font-weight: 950; letter-spacing: .07em; text-align: center; transform: rotate(-2deg); }
+
+    footer { padding: 24px 0 40px; color: var(--muted); font-size: .85rem; text-align: center; }
+
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    @media (max-width: 1020px) {
+      .hero-grid { grid-template-columns: 1fr; gap: 22px; }
+      .hero-copy { text-align: center; }
+      .hero-copy > p { margin-left: auto; margin-right: auto; }
+      .hero-meta { justify-content: center; }
+      .device-stage { min-height: 380px; }
+      .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .architecture { grid-template-columns: 1fr; }
+      .arch-arrow { transform: rotate(90deg); min-height: 42px; }
+      .arch-arrow small { display: none; }
+      .flow, .pair-flow, .milestones { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .db-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .db-flow-step:not(:last-child)::after { display: none; }
+      .flow-step:not(:last-child)::after, .pair-step:not(:last-child)::after { display: none; }
+      .api-layout { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      html { scroll-padding-top: 72px; }
+      .topbar-inner { width: min(100% - 20px, var(--content)); min-height: 62px; gap: 10px; }
+      .brand span { display: none; }
+      .brand-mark { width: 34px; height: 34px; }
+      .nav a { padding: 7px 9px; font-size: .79rem; }
+      .print-button { width: 40px; padding: 0; }
+      .print-button span { display: none; }
+      .container { width: min(100% - 24px, var(--content)); }
+      .hero { padding-top: 44px; }
+      .device-stage { min-height: 330px; }
+      .device { padding: 15px; border-radius: 23px; }
+      .compartment { min-height: 125px; padding: 11px 9px; }
+      .compartment-number { margin-bottom: 18px; }
+      .device-caption { right: 3px; bottom: 0; }
+      section { padding: 54px 0; }
+      .section-head { grid-template-columns: 1fr; gap: 14px; }
+      .grid-2, .grid-3, .grid-4, .rule-board, .offline-grid, .state-map, .schedule-example, .photo-policy, .future, .acceptance, .db-principles, .db-relations, .entity-groups, .db-ops { grid-template-columns: 1fr; }
+      .identity-map { grid-template-columns: 1fr; }
+      .identity-arrow { transform: rotate(90deg); }
+      .alert-pipeline { grid-template-columns: 1fr; }
+      .pipe-arrow { transform: rotate(90deg); }
+      .future-grid { grid-template-columns: 1fr; }
+      .final-box { grid-template-columns: 1fr; }
+      .stamp { justify-self: start; }
+    }
+
+    @media (max-width: 520px) {
+      h1 { font-size: 2.55rem; }
+      .hero-meta { align-items: stretch; flex-direction: column; }
+      .pill { justify-content: center; }
+      .device-caption { position: relative; right: auto; bottom: auto; width: 100%; margin-top: -12px; }
+      .flow, .pair-flow, .milestones { grid-template-columns: 1fr; }
+      .db-flow { grid-template-columns: 1fr; }
+      .api-row { grid-template-columns: 72px 1fr; padding: 14px; }
+      .scope-strip { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+
+    @media print {
+      @page { size: A4; margin: 14mm; }
+      body { background: white; color: #111; font-size: 10.5pt; }
+      .topbar, .progress, .print-button { display: none !important; }
+      .container { width: 100%; }
+      .hero, section { padding: 24px 0; background: white !important; }
+      .hero-grid, .section-head, .grid-2, .grid-3, .grid-4, .rule-board, .offline-grid, .schedule-example, .photo-policy, .future, .acceptance, .db-principles, .db-relations, .entity-groups, .db-ops { gap: 10px; }
+      .hero-grid { grid-template-columns: 1fr .75fr; }
+      h1 { font-size: 32pt; }
+      h2 { font-size: 22pt; }
+      .card, .arch-node, .flow-step, .pair-step, .milestone, .check, .identity-card, .schedule-form, .snapshot, .offline-scene, .offline-rule, .pipeline-node, .photo-card { box-shadow: none; break-inside: avoid; }
+      .device-stage { min-height: 300px; }
+      .device { box-shadow: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .architecture, .alert-pipeline, .api-layout { break-inside: avoid; }
+      .erd-shell, .schema-row, .db-flow-step, .db-op { break-inside: avoid; }
+      .erd-scroll { overflow: visible; padding: 5px; }
+      .erd-svg { min-width: 0; }
+      .architecture { grid-template-columns: 1fr 34px 1fr 34px 1fr; }
+      .arch-arrow svg { width: 30px; }
+      .flow, .pair-flow, .milestones { grid-template-columns: repeat(5, 1fr); }
+      .db-flow { grid-template-columns: repeat(5, 1fr); }
+      .future, .rule-primary, .snapshot, .offline-scene, .api-aside { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      footer { padding: 15px 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" aria-label="Về đầu trang">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M7 9h10v10H7zM9 5h6a2 2 0 0 1 2 2v2H7V7a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v6M9 14h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </span>
+        <span>Hộp thuốc thông minh</span>
+      </a>
+
+      <nav class="nav" aria-label="Mục lục chính">
+        <a href="#da-chot">Đã chốt</a>
+        <a href="#nghiem-thu">Nghiệm thu</a>
+        <a href="#kien-truc">Kiến trúc</a>
+        <a href="#co-so-du-lieu">CSDL</a>
+        <a href="#hoat-dong">Hoạt động</a>
+        <a href="#phan-quyen">Quyền</a>
+        <a href="#lich-uong">Lịch uống</a>
+        <a href="#ghep-qr">Ghép QR</a>
+        <a href="#api">API</a>
+        <a href="#lo-trinh">Lộ trình</a>
+      </nav>
+
+      <button class="print-button" id="printButton" type="button" aria-label="In hoặc lưu trang thành PDF">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 9V4h10v5M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v6H7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M17 12h.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        <span>In / Lưu PDF</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="top">
+    <div class="hero">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <div class="eyebrow">Bản đồ yêu cầu · MVP</div>
+          <h1>Hộp thuốc <span>nhắc đúng lúc</span>, xác nhận đúng cách.</h1>
+          <p>Một bản tổng hợp dễ đọc cho cả nhóm phần cứng, firmware và Web: hệ thống làm gì, không được kết luận điều gì, dữ liệu đi đâu và tiêu chí nào chứng minh MVP đã chạy đúng.</p>
+          <div class="hero-meta">
+            <span class="pill">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16v12H4zM7 4h10v3H7z" stroke="currentColor" stroke-width="1.8"/><path d="M12 10v6M9 13h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              3 ngăn: Sáng · Trưa · Tối
+            </span>
+            <span class="pill">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5a7 7 0 0 1 14 0V17l2 2H3l2-2v-4.5Z" stroke="currentColor" stroke-width="1.8"/><path d="M9 21h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              Đèn + còi + cảm biến nắp
+            </span>
+            <span class="pill">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12a8 8 0 0 1 16 0M7 15a5 5 0 0 1 10 0M10 18a2 2 0 0 1 4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="21" r="1" fill="currentColor"/></svg>
+              Vẫn nhắc khi mất Wi‑Fi
+            </span>
+          </div>
+        </div>
+
+        <div class="device-stage" aria-label="Minh họa hộp thuốc ba ngăn">
+          <div class="device">
+            <div class="device-head">
+              <span class="device-logo">Smart Med Box</span>
+              <span class="wifi"><span class="wifi-dot"></span> RTC sẵn sàng</span>
+            </div>
+            <div class="compartments">
+              <div class="compartment">
+                <div class="compartment-number">1</div>
+                <strong>Sáng</strong>
+                <small>07:00</small>
+              </div>
+              <div class="compartment active">
+                <div class="compartment-number">2</div>
+                <strong>Trưa</strong>
+                <small>12:00 · đang nhắc</small>
+              </div>
+              <div class="compartment">
+                <div class="compartment-number">3</div>
+                <strong>Tối</strong>
+                <small>20:00</small>
+              </div>
+            </div>
+            <div class="device-foot"><span>Nguồn DC</span><span>ESP32 · REST/JSON</span></div>
+          </div>
+          <div class="device-caption"><strong>Nguyên tắc quan trọng</strong>Mở nắp là bằng chứng “đã mở/đã xác nhận”, không phải bằng chứng chắc chắn “đã uống”.</div>
+        </div>
+      </div>
+    </div>
+
+    <section id="da-chot" aria-labelledby="da-chot-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">01 · Nền tảng chung</div><h2 id="da-chot-title">Những gì đã chốt</h2></div>
+          <p>Đây là phạm vi bắt buộc của MVP. Mọi thiết kế phần cứng, database, API và giao diện đều phải phục vụ các quyết định này.</p>
+        </div>
+
+        <div class="grid grid-3">
+          <article class="card decision-card">
+            <span class="card-number">01</span>
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8h16v11H4zM7 5h10v3H7zM9 12h6M12 9v6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+            <h3>Ba ngăn độc lập</h3>
+            <p>Sáng, trưa, tối; mỗi ngăn có đèn và cảm biến mở nắp. Đúng giờ chỉ đúng ngăn được nhắc.</p>
+          </article>
+          <article class="card decision-card">
+            <span class="card-number">02</span>
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0 1 16 0M7 15a5 5 0 0 1 10 0M10 18a2 2 0 0 1 4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+            <h3>Offline vẫn hoạt động</h3>
+            <p>Lịch được lưu cục bộ cùng RTC. Sự kiện xếp hàng, gửi lại khi có mạng và phải chống ghi trùng.</p>
+          </article>
+          <article class="card decision-card">
+            <span class="card-number">03</span>
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M5 12h14M5 17h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+            <h3>Stack thống nhất</h3>
+            <p>ASP.NET Core Web API + Entity Framework Core + SQL Server. ESP32 giao tiếp qua REST/JSON.</p>
+          </article>
+          <article class="card decision-card">
+            <span class="card-number">04</span>
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M3 20a6 6 0 0 1 12 0M16 6a3 3 0 0 1 0 6M16 15a5 5 0 0 1 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+            <h3>Một chủ, nhiều người thân</h3>
+            <p>Mỗi tài khoản sở hữu tối đa một hộp. Chủ có thể mời không giới hạn người thân với quyền chỉ xem.</p>
+          </article>
+          <article class="card decision-card">
+            <span class="card-number">05</span>
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 4 7v5c0 4.6 3.4 7.8 8 9 4.6-1.2 8-4.4 8-9V7l-8-4Z" stroke="currentColor" stroke-width="1.8"/><path d="m9 12 2 2 4-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h3>Ghép hộp bằng QR an toàn</h3>
+            <p>QR chỉ mang pairing code dùng một lần. Khóa thiết bị không xuất hiện trong QR và Server chỉ lưu bản băm.</p>
+          </article>
+          <article class="card decision-card">
+            <span class="card-number">06</span>
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5a7 7 0 0 1 14 0V17l2 2H3l2-2v-4.5Z" stroke="currentColor" stroke-width="1.8"/><path d="M9 21h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+            <h3>Cảnh báo quá hạn bắt buộc</h3>
+            <p>Email gửi cho chủ và mọi người thân đã chấp nhận; chạy nền, retry riêng và chống gửi trùng.</p>
+          </article>
+        </div>
+
+        <div class="scope-strip">
+          <strong>Mục tiêu MVP</strong>
+          <p>Nhắc đúng ngăn, ghi nhận đúng sự kiện, hiển thị đúng mức độ chắc chắn và cảnh báo đúng người — kể cả khi kết nối chập chờn.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="nghiem-thu" aria-labelledby="nghiem-thu-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">02 · Đích kiểm chứng MVP</div><h2 id="nghiem-thu-title">Tiêu chí nghiệm thu</h2></div>
+          <p>MVP chỉ hoàn thành khi các tình huống thực tế dưới đây chạy xuyên suốt, không chỉ khi từng module “có code”. Đây là checklist để cả nhóm bám vào ngay từ đầu.</p>
+        </div>
+
+        <div class="acceptance">
+          <article class="check"><span class="check-mark">✓</span><div><strong>Nhắc đúng ngăn</strong><p>Đúng giờ, đúng ngăn sáng đèn và còi; hai ngăn còn lại không sáng nhầm.</p></div></article>
+          <article class="check"><span class="check-mark">✓</span><div><strong>Xác nhận đúng cửa sổ</strong><p>Mở đúng ngăn trong thời gian chờ được ghi “đã mở”; mở sớm hoặc sai ngăn không xác nhận.</p></div></article>
+          <article class="check"><span class="check-mark">✓</span><div><strong>Xử lý nắp mở sẵn</strong><p>Nắp đang mở trước giờ không tự xác nhận; đóng rồi mở lại mới hợp lệ.</p></div></article>
+          <article class="check"><span class="check-mark">✓</span><div><strong>Offline tại thiết bị</strong><p>Ngắt Wi‑Fi, hộp vẫn nhắc theo lịch/RTC và giữ được sự kiện.</p></div></article>
+          <article class="check"><span class="check-mark">✓</span><div><strong>Đồng bộ không trùng</strong><p>Kết nối lại, gửi lại cùng event batch nhiều lần vẫn chỉ tạo một kết quả nghiệp vụ.</p></div></article>
+          <article class="check"><span class="check-mark">✓</span><div><strong>Không kết luận sai</strong><p>Khi offline, Web/email dùng Unknown hoặc “không thể xác nhận”, không báo chắc chắn quên uống.</p></div></article>
+          <article class="check"><span class="check-mark">✓</span><div><strong>Phân quyền kín</strong><p>Người thân xem được dữ liệu theo dõi nhưng bị từ chối khi sửa lịch/cấu hình hoặc truy cập ảnh đơn.</p></div></article>
+          <article class="check"><span class="check-mark">✓</span><div><strong>Ghép QR một lần</strong><p>Mã ghép dùng thành công đúng một lần; quét lại bị từ chối; DeviceApiKey không có trong QR.</p></div></article>
+          <article class="check"><span class="check-mark">✓</span><div><strong>Email đủ người</strong><p>Quá hạn online gửi cho chủ và mọi người thân Accepted; retry một người không làm gửi trùng người khác.</p></div></article>
+          <article class="check"><span class="check-mark">✓</span><div><strong>Snapshot không đổi ngược</strong><p>Sửa lịch/thuốc sau đó không làm thay đổi lần uống và lịch sử đã sinh.</p></div></article>
+          <article class="check"><span class="check-mark">✓</span><div><strong>Ảnh đúng chính sách</strong><p>Từ chối file sai loại/quá 5 MB; loại EXIF; file không nằm trực tiếp trong SQL Server.</p></div></article>
+          <article class="check"><span class="check-mark">✓</span><div><strong>Tài khoản trọn luồng</strong><p>Đăng ký, xác minh email, đăng nhập, quên và đặt lại mật khẩu đều hoạt động.</p></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="kien-truc" aria-labelledby="kien-truc-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">03 · Bức tranh lớn</div><h2 id="kien-truc-title">Kiến trúc hệ thống</h2></div>
+          <p>Ba khối phối hợp nhưng có trách nhiệm tách bạch: hộp nhắc tại chỗ, Server giữ dữ liệu và luật nghiệp vụ, Web giúp con người theo dõi và cấu hình.</p>
+        </div>
+
+        <div class="architecture" role="img" aria-label="Sơ đồ ESP32 giao tiếp REST JSON với Web API, Web API lưu SQL Server và phục vụ Web">
+          <article class="arch-node hardware">
+            <div class="section-kicker" style="color:#72e1d8">Tại thiết bị</div>
+            <h3>Hộp thuốc · ESP32</h3>
+            <p>Đọc cảm biến nắp, điều khiển đèn/còi, giữ lịch cục bộ, dùng RTC để nhắc đúng giờ và xếp hàng sự kiện khi offline.</p>
+            <div class="arch-tags"><span>3 cảm biến</span><span>3 đèn</span><span>Còi</span><span>RTC</span><span>Wi‑Fi</span><span>Nguồn DC</span></div>
+          </article>
+          <div class="arch-arrow" aria-hidden="true">
+            <div><svg viewBox="0 0 60 20"><path d="M2 10h52M47 3l8 7-8 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><small>REST / JSON</small></div>
+          </div>
+          <article class="arch-node server">
+            <div class="section-kicker">Trung tâm</div>
+            <h3>ASP.NET Core Web API</h3>
+            <p>Xác thực người dùng và thiết bị, sinh lần uống, phân quyền, đồng bộ lịch/sự kiện, tạo cảnh báo và gửi email nền.</p>
+            <div class="arch-tags"><span>EF Core</span><span>SQL Server</span><span>Background jobs</span><span>File storage</span></div>
+          </article>
+          <div class="arch-arrow" aria-hidden="true">
+            <div><svg viewBox="0 0 60 20"><path d="M2 10h52M47 3l8 7-8 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><small>HTTPS</small></div>
+          </div>
+          <article class="arch-node web">
+            <div class="section-kicker" style="color:var(--blue)">Cho người dùng</div>
+            <h3>Web</h3>
+            <p>Đăng ký/đăng nhập, ghép hộp, tạo lịch, xem dashboard, lịch sử, cảnh báo, quản lý người thân và ảnh đơn thuốc.</p>
+            <div class="arch-tags"><span>Chủ hộp</span><span>Người thân</span><span>Responsive</span><span>Phân quyền</span></div>
+          </article>
+        </div>
+
+        <div class="stack-line" aria-label="Công nghệ đã chốt">
+          <span>Thiết bị</span><b>ESP32</b><span>→</span><b>REST / JSON</b><span>→</span><b>ASP.NET Core Web API</b><span>→</span><b>EF Core</b><span>→</span><b>SQL Server</b>
+        </div>
+      </div>
+    </section>
+
+    <section id="co-so-du-lieu" aria-labelledby="co-so-du-lieu-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">04 · Dữ liệu phía Server</div><h2 id="co-so-du-lieu-title">Thiết kế cơ sở dữ liệu</h2></div>
+          <p>CSDL không chỉ “lưu tài khoản và lịch”. Nó phải giữ được lịch sử đúng như lúc sự việc xảy ra, chống sự kiện gửi lại bị trùng và chứng minh email nào đã được gửi cho ai.</p>
+        </div>
+
+        <div class="db-principles">
+          <article class="db-principle"><strong>Một nguồn dữ liệu đáng tin</strong><p>SQL Server giữ quan hệ, trạng thái và lịch sử; EF Core quản lý model và migration.</p></article>
+          <article class="db-principle"><strong>Sự kiện không ghi đè lịch sử</strong><p><code>DoseInstances</code> và <code>DeviceEvents</code> là dữ liệu nghiệp vụ đã xảy ra, không sửa theo lịch mới.</p></article>
+          <article class="db-principle"><strong>File nằm ngoài CSDL</strong><p>Ảnh đơn thuốc ở vùng lưu file riêng; SQL Server chỉ lưu metadata và storage key/path.</p></article>
+        </div>
+
+        <div class="erd-shell">
+          <div class="erd-toolbar">
+            <div><strong>ERD tổng quan</strong><p>PK = khóa chính · FK = khóa ngoại · UQ = unique constraint</p></div>
+            <div class="erd-legend" aria-label="Chú giải nhóm bảng"><span><i></i>Tài khoản</span><span><i></i>Thiết bị</span><span><i></i>Lịch/liều</span><span><i></i>Cảnh báo</span></div>
+          </div>
+          <div class="erd-scroll" tabindex="0" aria-label="Sơ đồ ERD có thể cuộn ngang trên màn hình nhỏ">
+            <svg class="erd-svg" viewBox="0 0 1160 720" role="img" aria-labelledby="erd-title erd-desc">
+              <title id="erd-title">Sơ đồ quan hệ dữ liệu Hộp thuốc thông minh</title>
+              <desc id="erd-desc">Bốn nhóm bảng tài khoản, thiết bị, lịch và lần uống, cảnh báo và tệp. Các đường nối mô tả quan hệ một-một, một-nhiều và liên kết qua khóa ngoại.</desc>
+              <defs>
+                <marker id="erdArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#8c9ab5"/></marker>
+              </defs>
+
+              <rect class="group-bg" x="12" y="18" width="258" height="682" rx="18"/>
+              <rect class="group-bg" x="302" y="18" width="238" height="682" rx="18"/>
+              <rect class="group-bg" x="572" y="18" width="278" height="682" rx="18"/>
+              <rect class="group-bg" x="882" y="18" width="266" height="682" rx="18"/>
+              <text class="group-title" x="30" y="46">TÀI KHOẢN &amp; QUYỀN</text>
+              <text class="group-title" x="320" y="46">THIẾT BỊ</text>
+              <text class="group-title" x="590" y="46">LỊCH &amp; LẦN UỐNG</text>
+              <text class="group-title" x="900" y="46">CẢNH BÁO &amp; TỆP</text>
+
+              <g>
+                <rect class="entity" x="30" y="66" width="222" height="66" rx="10"/><path class="identity-head" d="M40 66h202a10 10 0 0 1 10 10v18H30V76a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="42" y="85">ApplicationUsers</text><text class="entity-key" x="42" y="116">PK Id · UQ Email</text>
+                <rect class="entity" x="30" y="158" width="222" height="66" rx="10"/><path class="identity-head" d="M40 158h202a10 10 0 0 1 10 10v18H30v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="42" y="177">RefreshTokens (nếu JWT)</text><text class="entity-key" x="42" y="208">FK UserId · UQ TokenHash</text>
+                <rect class="entity" x="30" y="250" width="222" height="66" rx="10"/><path class="identity-head" d="M40 250h202a10 10 0 0 1 10 10v18H30v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="42" y="269">CareRelationships</text><text class="entity-key" x="42" y="300">FK DeviceId · RelativeUserId</text>
+                <rect class="entity" x="30" y="342" width="222" height="66" rx="10"/><path class="identity-head" d="M40 342h202a10 10 0 0 1 10 10v18H30v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="42" y="361">RelativeInvitations</text><text class="entity-key" x="42" y="392">FK DeviceId · UQ active invite</text>
+                <rect class="entity" x="30" y="434" width="222" height="66" rx="10"/><path class="identity-head" d="M40 434h202a10 10 0 0 1 10 10v18H30v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="42" y="453">PrescriptionImages</text><text class="entity-key" x="42" y="484">FK OwnerUserId · metadata</text>
+                <rect class="entity" x="30" y="526" width="222" height="66" rx="10"/><path class="identity-head" d="M40 526h202a10 10 0 0 1 10 10v18H30v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="42" y="545">AuditLogs</text><text class="entity-key" x="42" y="576">ActorUserId/DeviceId · append</text>
+              </g>
+
+              <g>
+                <rect class="entity" x="320" y="66" width="202" height="66" rx="10"/><path class="device-head-svg" d="M330 66h182a10 10 0 0 1 10 10v18H320V76a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="332" y="85">Devices</text><text class="entity-key" x="332" y="116">UQ DeviceId · Serial · Owner</text>
+                <rect class="entity" x="320" y="174" width="202" height="66" rx="10"/><path class="device-head-svg" d="M330 174h182a10 10 0 0 1 10 10v18H320v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="332" y="193">DevicePairingCodes</text><text class="entity-key" x="332" y="224">FK DeviceId · UQ CodeHash</text>
+                <rect class="entity" x="320" y="282" width="202" height="66" rx="10"/><path class="device-head-svg" d="M330 282h182a10 10 0 0 1 10 10v18H320v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="332" y="301">Compartments</text><text class="entity-key" x="332" y="332">FK DeviceId · UQ SlotNumber</text>
+                <rect class="entity" x="320" y="390" width="202" height="66" rx="10"/><path class="device-head-svg" d="M330 390h182a10 10 0 0 1 10 10v18H320v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="332" y="409">DeviceEvents</text><text class="entity-key" x="332" y="440">UQ DeviceId + EventId</text>
+              </g>
+
+              <g>
+                <rect class="entity" x="590" y="66" width="242" height="66" rx="10"/><path class="schedule-head" d="M600 66h222a10 10 0 0 1 10 10v18H590V76a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="602" y="85">MedicationSchedules</text><text class="entity-key" x="602" y="116">FK DeviceId · CompartmentId</text>
+                <rect class="entity" x="590" y="174" width="242" height="66" rx="10"/><path class="schedule-head" d="M600 174h222a10 10 0 0 1 10 10v18H590v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="602" y="193">ScheduleDays</text><text class="entity-key" x="602" y="224">PK ScheduleId + DayOfWeek</text>
+                <rect class="entity" x="590" y="282" width="242" height="66" rx="10"/><path class="schedule-head" d="M600 282h222a10 10 0 0 1 10 10v18H590v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="602" y="301">ScheduleItems</text><text class="entity-key" x="602" y="332">FK ScheduleId · thuốc trong lịch</text>
+                <rect class="entity" x="590" y="390" width="242" height="66" rx="10"/><path class="schedule-head" d="M600 390h222a10 10 0 0 1 10 10v18H590v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="602" y="409">DoseInstances</text><text class="entity-key" x="602" y="440">FK ScheduleId · snapshot grace</text>
+                <rect class="entity" x="590" y="498" width="242" height="66" rx="10"/><path class="schedule-head" d="M600 498h222a10 10 0 0 1 10 10v18H590v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="602" y="517">DoseItemSnapshots</text><text class="entity-key" x="602" y="548">FK DoseInstanceId · thuốc snapshot</text>
+              </g>
+
+              <g>
+                <rect class="entity" x="900" y="282" width="230" height="66" rx="10"/><path class="alert-head" d="M910 282h210a10 10 0 0 1 10 10v18H900v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="912" y="301">Alerts</text><text class="entity-key" x="912" y="332">FK DoseInstanceId · AlertType</text>
+                <rect class="entity" x="900" y="390" width="230" height="66" rx="10"/><path class="alert-head" d="M910 390h210a10 10 0 0 1 10 10v18H900v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="912" y="409">AlertRecipients</text><text class="entity-key" x="912" y="440">FK AlertId · RecipientUserId</text>
+                <rect class="entity" x="900" y="498" width="230" height="66" rx="10"/><path class="alert-head" d="M910 498h210a10 10 0 0 1 10 10v18H900v-18a10 10 0 0 1 10-10Z"/>
+                <text class="entity-title" x="912" y="517">EmailDeliveries</text><text class="entity-key" x="912" y="548">FK AlertRecipientId · retry</text>
+              </g>
+
+              <path class="rel-line" d="M141 132v26"/><text class="rel-label" x="148" y="149">1 → n</text>
+              <path class="rel-line" d="M141 224v26"/><text class="rel-label" x="148" y="241">1 → n</text>
+              <path class="rel-line" d="M141 316v26"/><text class="rel-label" x="148" y="333">1 → n</text>
+              <path class="rel-line" d="M141 408v26"/><text class="rel-label" x="148" y="425">1 → n</text>
+              <path class="rel-line rel-dash" d="M141 500v26"/>
+
+              <path class="rel-line" d="M252 99h68"/><text class="rel-label" x="267" y="90">0..1 ↔ 1</text>
+              <path class="rel-line" d="M421 132v42"/><text class="rel-label" x="428" y="156">1 → n</text>
+              <path class="rel-line" d="M421 240v42"/><text class="rel-label" x="428" y="264">1 → 3</text>
+              <path class="rel-line" d="M421 348v42"/><text class="rel-label" x="428" y="372">1 → n</text>
+              <path class="rel-line" d="M522 99h68"/><text class="rel-label" x="540" y="90">1 → n</text>
+
+              <path class="rel-line" d="M711 132v42"/><text class="rel-label" x="718" y="156">1 → n</text>
+              <path class="rel-line" d="M711 240v42"/><text class="rel-label" x="718" y="264">1 → n</text>
+              <path class="rel-line" d="M711 348v42"/><text class="rel-label" x="718" y="372">1 → n</text>
+              <path class="rel-line" d="M711 456v42"/><text class="rel-label" x="718" y="480">1 → n</text>
+              <path class="rel-line rel-dash" d="M522 423h68"/><text class="rel-label" x="535" y="414">ghép event</text>
+              <path class="rel-line" d="M832 423c38 0 30-108 68-108"/><text class="rel-label" x="838" y="356">0..n</text>
+              <path class="rel-line" d="M1015 348v42"/><text class="rel-label" x="1022" y="372">1 → n</text>
+              <path class="rel-line" d="M1015 456v42"/><text class="rel-label" x="1022" y="480">1 → n</text>
+              <path class="rel-line rel-dash" d="M252 283c34 0 30-184 68-184"/><text class="rel-label" x="272" y="205">n ↔ n</text>
+            </svg>
+          </div>
+        </div>
+
+        <div class="db-relations" aria-label="Các quan hệ và ràng buộc cốt lõi">
+          <article class="relation-card"><span class="cardinality">User 0..1 — 1 Device</span><h3>Một người tối đa một hộp</h3><p><code>Devices.OwnerUserId</code> là FK có unique filtered index khi khác NULL. Hộp chưa ghép được phép chưa có chủ; đã ghép thì chỉ có một chủ.</p></article>
+          <article class="relation-card"><span class="cardinality">Device 1 — 3 Compartments</span><h3>Đúng ba ngăn cố định</h3><p>Unique <code>(DeviceId, SlotNumber)</code>; seed ba dòng Sáng = 1, Trưa = 2, Tối = 3 khi provision thiết bị.</p></article>
+          <article class="relation-card"><span class="cardinality">Users n — n Devices</span><h3>Theo dõi qua bảng nối</h3><p><code>CareRelationships</code> nối người thân với hộp. Unique filtered trên cặp <code>(DeviceId, RelativeUserId)</code> đang hoạt động.</p></article>
+          <article class="relation-card"><span class="cardinality">Schedule 1 — n Dose</span><h3>Một lịch sinh nhiều lần uống</h3><p>Mỗi lần uống giữ thời điểm, hạn chờ và danh sách thuốc riêng; xóa/sửa lịch không làm mất lịch sử.</p></article>
+          <article class="relation-card"><span class="cardinality">Device + EventId = UQ</span><h3>Sự kiện gửi lại không bị nhân đôi</h3><p>Unique <code>(DeviceId, EventId)</code> làm khóa idempotency khi ESP32 đồng bộ lại event batch.</p></article>
+          <article class="relation-card"><span class="cardinality">Alert + User + Channel = UQ</span><h3>Mỗi email nghiệp vụ chỉ có một bản</h3><p>Unique <code>(AlertId, RecipientUserId, Channel)</code>; các lần retry nằm trong <code>EmailDeliveries</code>, không tạo recipient mới.</p></article>
+        </div>
+
+        <div class="entity-groups">
+          <article class="entity-group">
+            <div class="entity-group-head"><h3>1. Tài khoản và quyền theo dõi</h3><p>Danh tính, đăng nhập và quan hệ chủ hộp–người thân.</p></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>ApplicationUsers</strong><span class="schema-role">tài khoản</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>Email nvarchar(320) UQ</code><code>PasswordHash nvarchar(500)</code><code>EmailVerified bit</code><code>CreatedAt datetimeoffset</code><code>IsDeleted bit</code></div></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>RefreshTokens</strong><span class="schema-role">chỉ cần khi dùng JWT refresh token</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>UserId uniqueidentifier FK</code><code>TokenHash nvarchar(500) UQ</code><code>ExpiresAt datetimeoffset</code><code>RevokedAt datetimeoffset NULL</code></div><p class="schema-note">Không lưu refresh token dạng rõ. Nếu Web dùng cookie session thuần thì bảng này có thể không cần.</p></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>CareRelationships</strong><span class="schema-role">quyền theo dõi đã chấp nhận</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>DeviceId uniqueidentifier FK</code><code>RelativeUserId uniqueidentifier FK</code><code>Status nvarchar(30)</code><code>AcceptedAt datetimeoffset</code><code>RevokedAt datetimeoffset NULL</code></div></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>RelativeInvitations</strong><span class="schema-role">lời mời trước khi thành quan hệ</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>DeviceId uniqueidentifier FK</code><code>InviteeEmail nvarchar(320)</code><code>TokenHash nvarchar(500)</code><code>Status nvarchar(30)</code><code>ExpiresAt datetimeoffset</code></div><p class="schema-note">Dùng filtered unique index để không tồn tại hai lời mời Pending cho cùng hộp và cùng email đã chuẩn hóa.</p></div>
+          </article>
+
+          <article class="entity-group">
+            <div class="entity-group-head"><h3>2. Thiết bị và sự kiện vật lý</h3><p>Danh tính hộp, mã ghép, ba ngăn và dữ liệu ESP32 gửi lên.</p></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>Devices</strong><span class="schema-role">một thiết bị đã provision</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>DeviceId nvarchar(100) UQ</code><code>SerialNumber nvarchar(100) UQ</code><code>DeviceApiKeyHash nvarchar(500)</code><code>OwnerUserId uniqueidentifier FK/UQ NULL</code><code>LastSeenAt datetimeoffset</code><code>ScheduleVersion int</code></div></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>DevicePairingCodes</strong><span class="schema-role">QR dùng một lần</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>DeviceId uniqueidentifier FK</code><code>CodeHash nvarchar(500) UQ</code><code>ExpiresAt datetimeoffset</code><code>UsedAt datetimeoffset NULL</code><code>UsedByUserId uniqueidentifier FK NULL</code></div></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>Compartments</strong><span class="schema-role">Sáng, Trưa, Tối</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>DeviceId uniqueidentifier FK</code><code>SlotNumber int</code><code>Name nvarchar(30)</code><code>IsEnabled bit</code></div><p class="schema-note">Unique <code>(DeviceId, SlotNumber)</code> và check constraint <code>SlotNumber BETWEEN 1 AND 3</code>.</p></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>DeviceEvents</strong><span class="schema-role">append-only, chống trùng</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>DeviceId uniqueidentifier FK</code><code>EventId nvarchar(100)</code><code>CompartmentId uniqueidentifier FK</code><code>EventType nvarchar(40)</code><code>OccurredAt datetimeoffset</code><code>ReceivedAt datetimeoffset</code><code>MatchedDoseInstanceId uniqueidentifier FK NULL</code></div></div>
+          </article>
+
+          <article class="entity-group">
+            <div class="entity-group-head"><h3>3. Lịch, thuốc và lần uống</h3><p>Quy tắc lặp được tách khỏi bản ghi lịch sử đã sinh.</p></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>MedicationSchedules</strong><span class="schema-role">quy tắc lặp</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>DeviceId uniqueidentifier FK</code><code>CompartmentId uniqueidentifier FK</code><code>TimeOfDay time(0)</code><code>StartDate date</code><code>EndDate date NULL</code><code>GracePeriodMinutes int</code><code>TimeZoneId nvarchar(100)</code><code>IsDeleted bit</code></div></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>ScheduleDays</strong><span class="schema-role">các ngày lặp trong tuần</span></div><div class="schema-fields"><code>ScheduleId uniqueidentifier PK/FK</code><code>DayOfWeek int PK</code></div><p class="schema-note">Chọn bảng con thay vì chuỗi “2,4,6” hay bitmask: dễ kiểm tra FK, query và giải thích. Composite PK ngăn cùng ngày bị thêm hai lần; check 1–7.</p></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>ScheduleItems</strong><span class="schema-role">nhiều thuốc trong một lịch</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>ScheduleId uniqueidentifier FK</code><code>MedicineName nvarchar(200)</code><code>Quantity decimal(10,2)</code><code>Unit nvarchar(50)</code><code>Instructions nvarchar(500)</code></div></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>DoseInstances</strong><span class="schema-role">một lần uống cụ thể</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>ScheduleId uniqueidentifier FK</code><code>DeviceId uniqueidentifier FK</code><code>CompartmentId uniqueidentifier FK</code><code>ScheduledAt datetimeoffset</code><code>GracePeriodMinutes int</code><code>DeadlineAt datetimeoffset</code><code>Status nvarchar(30)</code><code>ConfirmedAt datetimeoffset NULL</code></div></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>DoseItemSnapshots</strong><span class="schema-role">ảnh chụp dữ liệu thuốc</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>DoseInstanceId uniqueidentifier FK</code><code>MedicineName nvarchar(200)</code><code>Quantity decimal(10,2)</code><code>Unit nvarchar(50)</code><code>Instructions nvarchar(500)</code></div></div>
+          </article>
+
+          <article class="entity-group">
+            <div class="entity-group-head"><h3>4. Cảnh báo, email, ảnh và audit</h3><p>Tách cảnh báo nghiệp vụ khỏi từng lần gửi để retry an toàn.</p></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>Alerts</strong><span class="schema-role">cảnh báo nghiệp vụ</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>DoseInstanceId uniqueidentifier FK</code><code>AlertType nvarchar(40)</code><code>Message nvarchar(500)</code><code>CreatedAt datetimeoffset</code><code>ResolvedAt datetimeoffset NULL</code></div></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>AlertRecipients</strong><span class="schema-role">người nhận và trạng thái đọc</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>AlertId uniqueidentifier FK</code><code>RecipientUserId uniqueidentifier FK</code><code>Channel nvarchar(20)</code><code>ReadAt datetimeoffset NULL</code></div><p class="schema-note">Unique <code>(AlertId, RecipientUserId, Channel)</code> là lớp chống gửi trùng ở mức nghiệp vụ.</p></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>EmailDeliveries</strong><span class="schema-role">mỗi lần thử gửi</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>AlertRecipientId uniqueidentifier FK</code><code>AttemptNumber int</code><code>Status nvarchar(30)</code><code>NextAttemptAt datetimeoffset NULL</code><code>SentAt datetimeoffset NULL</code><code>ProviderMessageId nvarchar(200) NULL</code></div></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>PrescriptionImages</strong><span class="schema-role">chỉ metadata</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>OwnerUserId uniqueidentifier FK</code><code>StorageKey nvarchar(500)</code><code>OriginalFileName nvarchar(255)</code><code>ContentType nvarchar(100)</code><code>SizeBytes int</code><code>UploadedAt datetimeoffset</code><code>IsDeleted bit</code></div></div>
+            <div class="schema-row"><div class="schema-row-title"><strong>AuditLogs</strong><span class="schema-role">dấu vết thao tác quan trọng</span></div><div class="schema-fields"><code>Id uniqueidentifier PK</code><code>ActorUserId uniqueidentifier FK NULL</code><code>DeviceId uniqueidentifier FK NULL</code><code>Action nvarchar(100)</code><code>EntityType nvarchar(100)</code><code>EntityId nvarchar(100)</code><code>OccurredAt datetimeoffset</code><code>Details nvarchar(max)</code></div></div>
+          </article>
+        </div>
+
+        <div class="snapshot-explain">
+          <div class="snapshot-icon" aria-hidden="true">⧉</div>
+          <div><h3>Vì sao phải snapshot?</h3><p>Ví dụ 07:00 hôm nay lịch có thời gian chờ 15 phút và hai thuốc “Vitamin C · 1 viên”, “Canxi · 2 viên”. 08:00 chủ sửa lịch thành 30 phút và bỏ Canxi. Nếu <code>DoseInstances.GracePeriodMinutes</code> cùng các dòng <code>DoseItemSnapshots</code> không được sao chép lúc sinh lần uống, lịch sử 07:00 sẽ bị đổi ngược và trở nên sai. Snapshot giữ đúng “sự thật tại thời điểm đã xảy ra”.</p></div>
+        </div>
+
+        <div class="section-head" style="margin-top:44px">
+          <div><div class="section-kicker">Ví dụ xuyên suốt</div><h3>Một lịch đi qua CSDL thế nào?</h3></div>
+          <p>Từ thao tác trên Web đến mở nắp và gửi email, mỗi bước ghi vào đúng nhóm bảng để có thể kiểm tra lại.</p>
+        </div>
+        <div class="db-flow">
+          <article class="db-flow-step"><h3>Tạo lịch</h3><p>Web API ghi <code>MedicationSchedules</code>, các ngày vào <code>ScheduleDays</code> và thuốc vào <code>ScheduleItems</code>.</p></article>
+          <article class="db-flow-step"><h3>Sinh lần uống</h3><p>Job tạo <code>DoseInstances</code>, copy grace period và tạo các <code>DoseItemSnapshots</code>.</p></article>
+          <article class="db-flow-step"><h3>ESP32 mở ngăn</h3><p>Thiết bị gửi <code>EventId</code>, ngăn, loại sự kiện và <code>OccurredAt</code>; Server ghi <code>DeviceEvents</code>.</p></article>
+          <article class="db-flow-step"><h3>Ghép sự kiện</h3><p>Server tìm dose đúng ngăn/cửa sổ, gắn <code>MatchedDoseInstanceId</code> và cập nhật trạng thái “Đã mở”.</p></article>
+          <article class="db-flow-step"><h3>Quá hạn</h3><p>Nếu đủ điều kiện, tạo <code>Alerts</code>, từng <code>AlertRecipients</code> và retry trong <code>EmailDeliveries</code>.</p></article>
+        </div>
+
+        <div class="section-head" style="margin-top:44px">
+          <div><div class="section-kicker">Nối API với dữ liệu</div><h3>Endpoint dùng bảng nào?</h3></div>
+          <p>Bảng ánh xạ này giúp người mới đi từ controller/service đến entity cần đọc hoặc ghi.</p>
+        </div>
+        <div class="table-wrap api-db-table">
+          <table>
+            <thead><tr><th>Nhóm endpoint</th><th>Bảng đọc/ghi chính</th><th>Việc cần nhớ</th></tr></thead>
+            <tbody>
+              <tr><td>Auth / profile</td><td><code>ApplicationUsers</code>, <code>RefreshTokens</code> nếu JWT</td><td class="note">Email unique, token chỉ lưu hash, kiểm tra email đã xác minh.</td></tr>
+              <tr><td>Device pairing / status</td><td><code>Devices</code>, <code>DevicePairingCodes</code>, <code>Compartments</code>, <code>AuditLogs</code></td><td class="note">Ghép trong transaction; set owner và UsedAt cùng lúc.</td></tr>
+              <tr><td>Schedules</td><td><code>MedicationSchedules</code>, <code>ScheduleDays</code>, <code>ScheduleItems</code></td><td class="note">Chỉ chủ được sửa; tăng ScheduleVersion để ESP32 biết cần sync.</td></tr>
+              <tr><td>Heartbeat / sync / event batch</td><td><code>Devices</code>, <code>MedicationSchedules</code>, <code>DeviceEvents</code>, <code>DoseInstances</code></td><td class="note">Xác thực thiết bị và upsert sự kiện theo unique DeviceId + EventId.</td></tr>
+              <tr><td>Relatives / invitations</td><td><code>RelativeInvitations</code>, <code>CareRelationships</code>, <code>ApplicationUsers</code></td><td class="note">Filtered unique ngăn lời mời hoặc quan hệ đang hoạt động bị trùng.</td></tr>
+              <tr><td>Dashboard / history / alerts</td><td><code>DoseInstances</code>, <code>DoseItemSnapshots</code>, <code>Alerts</code>, <code>AlertRecipients</code></td><td class="note">Phân quyền theo owner/care relationship; không suy diễn “đã uống”.</td></tr>
+              <tr><td>Prescription images</td><td><code>PrescriptionImages</code>, <code>AuditLogs</code></td><td class="note">Chỉ chủ; CSDL không chứa binary và không trả URL công khai.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section-head" style="margin-top:44px">
+          <div><div class="section-kicker">Vận hành an toàn</div><h3>Quy ước phải áp dụng ngay</h3></div>
+          <p>Những lựa chọn nhỏ ở giai đoạn đầu sẽ quyết định dữ liệu có đáng tin khi demo và triển khai thật hay không.</p>
+        </div>
+        <div class="db-ops">
+          <article class="db-op"><h3>Xóa mềm có chọn lọc</h3><p>Dùng <code>IsDeleted</code>/<code>DeletedAt</code> cho lịch, ảnh và dữ liệu cấu hình. Không xóa vật lý các sự kiện, lần uống, cảnh báo và log đã phát sinh; khi cần xóa tài khoản thì ẩn danh dữ liệu theo chính sách.</p></article>
+          <article class="db-op"><h3>Giờ lưu theo UTC</h3><p>Các thời điểm thực tế dùng <code>datetimeoffset</code> và chuẩn hóa UTC. Lịch giữ thêm <code>TimeOfDay</code>, ngày hiệu lực và <code>TimeZoneId</code> để sinh dose đúng giờ địa phương.</p></article>
+          <article class="db-op"><h3>Index cho đường đọc nóng</h3><ul><li><code>DoseInstances(Status, DeadlineAt)</code> cho job quá hạn.</li><li><code>DeviceEvents(DeviceId, OccurredAt)</code> cho lịch sử.</li><li><code>EmailDeliveries(Status, NextAttemptAt)</code> cho retry.</li><li><code>Schedules(DeviceId, IsDeleted)</code> cho schedule sync.</li></ul></article>
+          <article class="db-op"><h3>Migration và seed</h3><p>Dùng EF Core migrations có review, không dựa vào <code>EnsureCreated</code> ở môi trường thật. Khi provision Device, seed đúng ba ngăn trong cùng transaction; dữ liệu demo/user mẫu tách khỏi seed cấu trúc.</p></article>
+          <article class="db-op"><h3>Backup phải khôi phục được</h3><p>Lên lịch backup SQL Server và vùng file ảnh riêng, mã hóa khi lưu/truyền, kiểm tra restore định kỳ. Có job đối chiếu metadata với file để phát hiện file thiếu hoặc file mồ côi.</p></article>
+          <article class="db-op"><h3>Bảo vệ ảnh đơn thuốc</h3><p>Chỉ giữ storage key/path, content type và size trong CSDL. File ở vùng private, bỏ EXIF, kiểm tra JPEG/PNG/WebP và 5 MB; mọi lần xem phải qua API kiểm tra chủ sở hữu.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="hoat-dong" aria-labelledby="hoat-dong-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">05 · Luồng cốt lõi</div><h2 id="hoat-dong-title">Một lần nhắc diễn ra thế nào?</h2></div>
+          <p>Ví dụ: lịch 12:00, ngăn Trưa, thời gian chờ 15 phút. Hệ thống phân biệt rõ “được phép xác nhận” và “chỉ phát hiện nắp mở”.</p>
+        </div>
+
+        <div class="flow">
+          <article class="flow-step"><h3>Chuẩn bị</h3><p>Hộp đã có lịch 12:00 trong bộ nhớ cục bộ. RTC bảo đảm vẫn biết giờ khi mất Wi‑Fi.</p></article>
+          <article class="flow-step"><h3>Đúng 12:00</h3><p>Đèn ngăn Trưa sáng, còi kêu. Cửa sổ xác nhận mở từ 12:00 đến 12:15.</p></article>
+          <article class="flow-step"><h3>Mở đúng ngăn</h3><p>Cảm biến ghi nhận cạnh chuyển “đóng → mở” trong cửa sổ chờ. Thiết bị tạo sự kiện duy nhất.</p></article>
+          <article class="flow-step"><h3>Đồng bộ</h3><p>Có mạng thì gửi ngay; mất mạng thì xếp hàng và gửi lại sau. Server chống trùng bằng mã sự kiện.</p></article>
+          <article class="flow-step"><h3>Hiển thị</h3><p>Web ghi “Đã mở/đã xác nhận”. Nếu quá hạn, hệ thống tạo cảnh báo theo trạng thái kết nối.</p></article>
+        </div>
+
+        <div class="rule-board">
+          <article class="rule-primary">
+            <div class="section-kicker" style="color:#72e1d8">Cách diễn đạt bắt buộc</div>
+            <h3>Hệ thống chỉ biết nắp đã được mở</h3>
+            <p>Cảm biến không quan sát được người dùng có lấy thuốc hay nuốt thuốc hay không. Vì vậy giao diện, email và báo cáo phải dùng <strong>“đã mở/đã xác nhận”</strong>, không tuyên bố chắc chắn <strong>“đã uống”</strong>.</p>
+          </article>
+          <div class="rule-list">
+            <div class="rule-item ok"><span class="mark">✓</span><div><strong>Mở đúng ngăn, đúng thời gian</strong><p>Được xác nhận cho lần uống đang chờ.</p></div></div>
+            <div class="rule-item no"><span class="mark">×</span><div><strong>Mở sai ngăn hoặc mở trước giờ</strong><p>Không xác nhận lần uống.</p></div></div>
+            <div class="rule-item warn"><span class="mark">!</span><div><strong>Nắp đã mở sẵn</strong><p>Phải đóng rồi mở lại để tạo cạnh chuyển hợp lệ.</p></div></div>
+          </div>
+        </div>
+
+        <div class="state-map" aria-label="Các trạng thái của lần uống">
+          <article class="state"><span class="status pending"><span class="status-dot"></span>Chờ xác nhận</span><p>Đã đến giờ và vẫn còn trong thời gian chờ.</p></article>
+          <article class="state"><span class="status confirmed"><span class="status-dot"></span>Đã mở</span><p>Có sự kiện mở đúng ngăn, đúng cửa sổ.</p></article>
+          <article class="state"><span class="status overdue"><span class="status-dot"></span>Quá hạn</span><p>Đủ dữ liệu trực tuyến và hết thời gian chờ mà chưa có xác nhận.</p></article>
+          <article class="state"><span class="status unknown"><span class="status-dot"></span>Unknown / Offline</span><p>Không đủ dữ liệu vì thiết bị mất kết nối; không kết luận quên uống.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="offline" aria-labelledby="offline-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">05 · Chịu lỗi mạng</div><h2 id="offline-title">Mất Wi‑Fi không làm hộp “im lặng”</h2></div>
+          <p>Phần nhắc tại chỗ không phụ thuộc Server theo từng giây. Dữ liệu được hòa giải sau khi mạng trở lại, còn Web phải thành thật về điều chưa biết.</p>
+        </div>
+
+        <div class="offline-grid">
+          <article class="offline-scene">
+            <div class="section-kicker" style="color:#72e1d8">Trong lúc offline</div>
+            <h3>Thiết bị tự tiếp tục</h3>
+            <p>ESP32 dùng lịch đã đồng bộ và đồng hồ RTC để bật đèn/còi. Mỗi sự kiện có mã ổn định để gửi lại mà không tạo bản ghi trùng.</p>
+            <ol class="queue">
+              <li><span class="queue-num">01</span><span>Phát nhắc theo lịch cục bộ</span></li>
+              <li><span class="queue-num">02</span><span>Ghi sự kiện mở nắp vào hàng đợi</span></li>
+              <li><span class="queue-num">03</span><span>Kết nối lại và gửi theo lô</span></li>
+              <li><span class="queue-num">04</span><span>Server nhận idempotent, bỏ bản trùng</span></li>
+            </ol>
+          </article>
+
+          <div class="offline-rules">
+            <article class="offline-rule"><strong>Web hiển thị Unknown / Offline</strong><p>Không chuyển trạng thái thiếu dữ liệu thành “quên uống”.</p></article>
+            <article class="offline-rule"><strong>Cảnh báo nói đúng bản chất</strong><p>Dùng nội dung “không thể xác nhận do mất kết nối”, không cáo buộc chắc chắn đã bỏ liều.</p></article>
+            <article class="offline-rule"><strong>Đồng bộ lịch có phiên bản</strong><p>Thiết bị chỉ thay lịch cục bộ khi nhận đủ gói hợp lệ; có thể biết bản lịch đang dùng.</p></article>
+            <article class="offline-rule"><strong>Heartbeat báo trạng thái ghép</strong><p>Phản hồi gồm <code>Unpaired</code> hoặc <code>Paired</code>, cùng thông tin đồng bộ cần thiết.</p></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="phan-quyen" aria-labelledby="phan-quyen-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">06 · Tài khoản &amp; quyền</div><h2 id="phan-quyen-title">Ai được làm gì?</h2></div>
+          <p>Một tài khoản có thể đồng thời là chủ hộp của mình và là người thân theo dõi hộp của người khác. Quyền được xét theo từng hộp.</p>
+        </div>
+
+        <div class="identity-map">
+          <article class="identity-card owner">
+            <div class="section-kicker">Vai trò A</div>
+            <h3>Chủ hộp</h3>
+            <ul class="mini-list">
+              <li>Mỗi tài khoản sở hữu tối đa 1 hộp</li>
+              <li>Mỗi hộp chỉ có 1 chủ</li>
+              <li>Tạo/sửa/xóa lịch và cấu hình</li>
+              <li>Tải lên và xem ảnh đơn thuốc của mình</li>
+              <li>Mời hoặc thu hồi quyền người thân</li>
+            </ul>
+          </article>
+          <div class="identity-arrow" aria-hidden="true">↔</div>
+          <article class="identity-card relative">
+            <div class="section-kicker" style="color:var(--blue)">Vai trò B</div>
+            <h3>Người thân</h3>
+            <ul class="mini-list">
+              <li>Chỉ có quyền sau khi chấp nhận lời mời</li>
+              <li>Xem lịch, trạng thái, lịch sử, cảnh báo</li>
+              <li>Không sửa lịch hoặc cấu hình</li>
+              <li>Không được xem ảnh đơn thuốc</li>
+              <li>Có thể ngừng theo dõi bất cứ lúc nào</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="table-wrap" style="margin-top:20px">
+          <table>
+            <thead><tr><th>Chức năng</th><th>Chủ hộp</th><th>Người thân đã chấp nhận</th><th>Ghi chú</th></tr></thead>
+            <tbody>
+              <tr><td>Xem lịch, trạng thái, lịch sử, cảnh báo</td><td class="yes">Có</td><td class="yes">Có</td><td class="note">Chỉ trong phạm vi hộp có quyền</td></tr>
+              <tr><td>Tạo, sửa, xóa lịch và cấu hình</td><td class="yes">Có</td><td class="nope">Không</td><td class="note">API bắt buộc kiểm tra quyền phía Server</td></tr>
+              <tr><td>Xem / tải ảnh đơn thuốc</td><td class="yes">Có</td><td class="nope">Không</td><td class="note">Không chia sẻ gián tiếp qua URL công khai</td></tr>
+              <tr><td>Mời / thu hồi người thân</td><td class="yes">Có</td><td class="nope">Không</td><td class="note">Chống mời trùng và rate-limit chống spam</td></tr>
+              <tr><td>Nhận email quá hạn</td><td class="yes">Bắt buộc</td><td class="yes">Bắt buộc</td><td class="note">Chỉ người thân ở trạng thái Accepted</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="grid grid-3" style="margin-top:18px">
+          <article class="card"><h3>Vòng đời lời mời</h3><p><strong>Mời → Chấp nhận → Theo dõi → Thu hồi/ngừng theo dõi.</strong> Không tạo hai lời mời đang hoạt động cho cùng một cặp người và hộp.</p></article>
+          <article class="card"><h3>Tài khoản đầy đủ</h3><p>Đăng ký email/mật khẩu, xác minh email, đăng nhập, quên mật khẩu và đặt lại mật khẩu.</p></article>
+          <article class="card"><h3>Giới hạn chống spam</h3><p>Chủ được mời không giới hạn người thân về mặt nghiệp vụ, nhưng tần suất gửi lời mời phải được rate-limit.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="lich-uong" aria-labelledby="lich-uong-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">07 · Lịch &amp; thuốc</div><h2 id="lich-uong-title">Lịch lặp, lần uống và snapshot</h2></div>
+          <p>Lịch là quy tắc lâu dài; “lần uống” là một lần cụ thể được sinh ra từ lịch. Snapshot giúp lịch sử không bị thay đổi ngược khi chủ sửa lịch về sau.</p>
+        </div>
+
+        <div class="schedule-example">
+          <article class="schedule-form">
+            <div class="section-kicker">Ví dụ một lịch</div>
+            <h3>Buổi sáng · 07:00 · Ngăn Sáng</h3>
+            <div class="field"><span class="field-label">Ngày trong tuần</span><div class="fake-input"><span class="day">Thứ 2</span><span class="day">Thứ 4</span><span class="day">Thứ 6</span><span class="day">Chủ nhật</span></div></div>
+            <div class="field"><span class="field-label">Hiệu lực</span><div class="fake-input">01/10/2026 → 31/12/2026</div></div>
+            <div class="field"><span class="field-label">Thời gian chờ</span><div class="fake-input"><strong>15 phút</strong>&nbsp; <span class="note">người dùng đặt từ 1–120 phút</span></div></div>
+          </article>
+
+          <article class="snapshot">
+            <span class="snapshot-label">Snapshot khi sinh lần uống</span>
+            <h3>Ngày 02/10/2026 · 07:00</h3>
+            <p>Lần uống giữ nguyên dữ liệu tại thời điểm được sinh, dù lịch gốc hoặc danh sách thuốc đổi sau đó.</p>
+            <div class="medicine-list">
+              <div class="medicine"><strong>Vitamin C · 1 viên</strong><p>Uống sau ăn.</p></div>
+              <div class="medicine"><strong>Canxi · 2 viên</strong><p>Uống với nhiều nước.</p></div>
+            </div>
+            <div class="snapshot-foot"><strong>Chờ đã snapshot:</strong> 15 phút · hạn xác nhận 07:15</div>
+          </article>
+        </div>
+
+        <div class="grid grid-3" style="margin-top:18px">
+          <article class="card"><h3>Lịch lặp linh hoạt</h3><p>Chọn một hoặc nhiều ngày trong tuần, giờ, ngăn, ngày bắt đầu và ngày kết thúc.</p></article>
+          <article class="card"><h3>Nhiều thuốc trong một ngăn</h3><p>Một buổi có thể gồm nhiều thuốc. Mỗi thuốc có tên, số lượng, đơn vị và hướng dẫn.</p></article>
+          <article class="card"><h3>Thời gian chờ do người dùng đặt</h3><p>Mặc định đề xuất 15 phút; giới hạn hợp lệ 1–120 phút. Giá trị được snapshot vào từng lần uống.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="ghep-qr" aria-labelledby="ghep-qr-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">08 · Kích hoạt thiết bị</div><h2 id="ghep-qr-title">Luồng ghép hộp bằng QR</h2></div>
+          <p>Thiết bị đã được provision sẵn trên Server. Người dùng chỉ ghép quyền sở hữu; họ không đưa khóa bí mật của ESP32 qua camera hay Web.</p>
+        </div>
+
+        <div class="pair-flow">
+          <article class="pair-step"><span class="step-tag">Bước 1</span><h3>Provision</h3><p>Server biết <code>DeviceId</code>, <code>SerialNumber</code>, bản băm <code>DeviceApiKey</code> và bản băm pairing code.</p></article>
+          <article class="pair-step"><span class="step-tag">Bước 2</span><h3>In QR</h3><p>QR chỉ chứa pairing code dùng một lần, không chứa <code>DeviceApiKey</code>.</p></article>
+          <article class="pair-step"><span class="step-tag">Bước 3</span><h3>Quét</h3><p>Người dùng đã đăng nhập và xác minh email quét QR trên Web.</p></article>
+          <article class="pair-step"><span class="step-tag">Bước 4</span><h3>Ghép atomically</h3><p>API kiểm tra quyền và mã, gắn tài khoản với Device trong một transaction.</p></article>
+          <article class="pair-step"><span class="step-tag">Bước 5</span><h3>Vô hiệu mã</h3><p>Pairing code hết hiệu lực ngay. Heartbeat tiếp theo trả <code>Paired</code>.</p></article>
+        </div>
+
+        <div class="security-note">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 4 7v5c0 4.6 3.4 7.8 8 9 4.6-1.2 8-4.4 8-9V7l-8-4Z" stroke="currentColor" stroke-width="1.8"/><path d="M9 11V9a3 3 0 0 1 6 0v2M8 11h8v6H8z" stroke="currentColor" stroke-width="1.8"/></svg>
+          <div><strong>Ranh giới bảo mật:</strong> ESP32 xác thực mọi request bằng <code>DeviceId + DeviceApiKey</code>. Khóa thật nằm trong thiết bị; Server chỉ giữ bản băm của <code>DeviceApiKey</code> và bản băm của pairing code. Ghép QR không được làm lộ khóa thiết bị.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="api" aria-labelledby="api-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">09 · Web API</div><h2 id="api-title">Nhóm API cần có</h2></div>
+          <p>Endpoint dưới đây là tên gợi ý để thống nhất trao đổi. Tên cuối cùng có thể điều chỉnh, nhưng phạm vi chức năng và kiểm tra quyền không được thiếu.</p>
+        </div>
+
+        <div class="api-layout">
+          <aside class="api-aside">
+            <div class="section-kicker" style="color:#72e1d8">Nguyên tắc</div>
+            <h3>API tách 2 loại người gọi</h3>
+            <span class="big">2</span>
+            <p>Người dùng dùng phiên/token tài khoản. ESP32 dùng <code style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.13);color:white">DeviceId + DeviceApiKey</code>.</p>
+            <p>Mọi thao tác quan trọng cần validation, authorization và idempotency phù hợp.</p>
+          </aside>
+
+          <div class="api-list">
+            <div class="api-row"><span class="method post">POST</span><div><strong>Auth &amp; profile</strong><br><code>/api/auth/register</code> · <code>/verify-email</code> · <code>/login</code> · <code>/forgot-password</code><p>Đăng ký, xác minh, đăng nhập và khôi phục tài khoản.</p></div></div>
+            <div class="api-row"><span class="method post">POST</span><div><strong>Ghép và trạng thái hộp</strong><br><code>/api/devices/pair</code> · <code>GET /api/devices/mine</code><p>Ghép QR trong transaction và xem trạng thái thiết bị thuộc sở hữu.</p></div></div>
+            <div class="api-row"><span class="method post">POST</span><div><strong>Lịch uống</strong><br><code>/api/schedules</code> · <code>PUT /api/schedules/{id}</code><p>CRUD lịch, thuốc, ngày lặp và thời gian chờ; chỉ chủ hộp được sửa.</p></div></div>
+            <div class="api-row"><span class="method post">POST</span><div><strong>Kênh thiết bị</strong><br><code>/api/device/heartbeat</code> · <code>/schedule-sync</code> · <code>/events/batch</code><p>Heartbeat, tải lịch và đồng bộ lô sự kiện có chống trùng.</p></div></div>
+            <div class="api-row"><span class="method post">POST</span><div><strong>Người thân &amp; lời mời</strong><br><code>/api/relatives/invitations</code> · <code>/accept</code> · <code>/revoke</code><p>Mời, chấp nhận, thu hồi/ngừng theo dõi; chống trùng và rate-limit.</p></div></div>
+            <div class="api-row"><span class="method">GET</span><div><strong>Dashboard &amp; theo dõi</strong><br><code>/api/dashboard</code> · <code>/dose-history</code> · <code>/alerts</code><p>Trả dữ liệu theo đúng hộp và vai trò; giữ trạng thái Unknown khi offline.</p></div></div>
+            <div class="api-row"><span class="method post">POST</span><div><strong>Ảnh đơn thuốc</strong><br><code>/api/prescriptions/images</code> · <code>DELETE /api/prescriptions/images/{id}</code><p>Tải lên/xem/xóa có kiểm tra quyền chủ hộp và chính sách file.</p></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="canh-bao" aria-labelledby="canh-bao-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">10 · Cảnh báo</div><h2 id="canh-bao-title">Email quá hạn là bắt buộc</h2></div>
+          <p>Không có nút tắt email quá hạn. Muốn không nhận nữa, người thân phải ngừng theo dõi hoặc chủ hộp thu hồi quyền.</p>
+        </div>
+
+        <div class="alert-pipeline">
+          <article class="pipeline-node"><h3>Hết thời gian chờ</h3><p>Server đánh giá lần uống dựa trên sự kiện đã nhận và trạng thái kết nối thiết bị.</p></article>
+          <div class="pipe-arrow" aria-hidden="true">→</div>
+          <article class="pipeline-node highlight"><h3>Tạo cảnh báo đúng nghĩa</h3><p>Online: có thể báo quá hạn chưa xác nhận. Offline: báo “không thể xác nhận do mất kết nối”.</p></article>
+          <div class="pipe-arrow" aria-hidden="true">→</div>
+          <article class="pipeline-node"><h3>Gửi từng người</h3><p>Chủ hộp + tất cả người thân Accepted. Job nền retry riêng từng người và chống gửi trùng.</p></article>
+        </div>
+
+        <div class="grid grid-3" style="margin-top:18px">
+          <article class="card"><h3>Không block request</h3><p>Việc gửi email chạy nền; Web API không phải chờ nhà cung cấp email phản hồi.</p></article>
+          <article class="card"><h3>Retry độc lập</h3><p>Một địa chỉ lỗi không làm những người nhận khác bị gửi lại hoặc thất bại theo.</p></article>
+          <article class="card"><h3>Chống trùng</h3><p>Mỗi cảnh báo–người nhận có khóa duy nhất để retry không tạo nhiều email giống nhau.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="anh-don" aria-labelledby="anh-don-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">11 · Ảnh đơn thuốc</div><h2 id="anh-don-title">Chỉ để nhớ và đối chiếu</h2></div>
+          <p>Đây là tiện ích cá nhân của chủ hộp, không phải tính năng chẩn đoán hay nhập lịch tự động. File lưu ngoài SQL Server; CSDL chỉ giữ metadata và đường dẫn/khóa lưu trữ.</p>
+        </div>
+
+        <div class="photo-policy">
+          <article class="photo-card allowed">
+            <div class="section-kicker" style="color:var(--green)">Được phép</div>
+            <h3>Upload có kiểm soát</h3>
+            <ul class="mini-list">
+              <li>Chỉ chủ hộp tải lên và xem</li>
+              <li>JPEG, PNG hoặc WebP</li>
+              <li>Tối đa 5 MB mỗi file</li>
+              <li>Kiểm tra loại file thực, không chỉ phần mở rộng</li>
+              <li>Loại bỏ EXIF trước khi lưu</li>
+            </ul>
+          </article>
+          <article class="photo-card blocked">
+            <div class="section-kicker" style="color:var(--coral)">Không thuộc MVP</div>
+            <h3>Không suy diễn y tế</h3>
+            <ul class="mini-list">
+              <li>Không OCR nội dung đơn</li>
+              <li>Không tự sinh lịch uống</li>
+              <li>Không xác thực đơn thuốc</li>
+              <li>Không chia sẻ ảnh cho người thân</li>
+              <li>Không dùng URL công khai bỏ qua kiểm tra quyền</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="lo-trinh" aria-labelledby="lo-trinh-title">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="section-kicker">12 · Triển khai</div><h2 id="lo-trinh-title">Lộ trình theo mốc</h2></div>
+          <p>Làm dọc theo một luồng chạy được từ thiết bị đến Web, thay vì hoàn thiện riêng từng khối rồi mới ghép ở cuối.</p>
+        </div>
+
+        <div class="milestones">
+          <article class="milestone" data-step="1"><h3>Nền móng</h3><p>Chốt sơ đồ khối phần cứng, ERD, hợp đồng JSON, repo GitHub và cách quản lý secret.</p></article>
+          <article class="milestone" data-step="2"><h3>Tài khoản &amp; ghép hộp</h3><p>Auth đầy đủ, provision thiết bị, QR một lần, heartbeat Unpaired/Paired.</p></article>
+          <article class="milestone" data-step="3"><h3>Lịch &amp; nhắc tại chỗ</h3><p>CRUD lịch, sinh dose snapshot, ESP32 đồng bộ lịch, RTC, đèn/còi và cảm biến nắp.</p></article>
+          <article class="milestone mvp" data-step="4"><h3>Đồng bộ &amp; cảnh báo</h3><p>Queue offline, event batch idempotent, dashboard trạng thái, email nền cho chủ và người thân.</p></article>
+          <article class="milestone" data-step="5"><h3>Hoàn thiện demo</h3><p>Ảnh đơn thuốc an toàn, kiểm thử xuyên suốt, log, tài liệu lắp ráp và kịch bản trình diễn.</p></article>
+        </div>
+
+        <div class="scope-strip">
+          <strong>Chiến lược thực tế</strong>
+          <p>Firmware và Software chạy song song, nhưng mỗi mốc phải có dữ liệu mẫu chung và một kịch bản tích hợp để hai nhánh kiểm tra được nhau.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="sau-mvp" aria-labelledby="sau-mvp-title">
+      <div class="container">
+        <div class="future">
+          <div>
+            <div class="section-kicker" style="color:#72e1d8">13 · Sau MVP</div>
+            <h2 id="sau-mvp-title">Có thể mở rộng, nhưng chưa làm lúc này</h2>
+            <p>Những ý tưởng sau chỉ nên bắt đầu khi luồng cốt lõi đã ổn định và tiêu chí nghiệm thu MVP đã đạt. Chúng không được làm loãng tiến độ hiện tại.</p>
+          </div>
+          <div class="future-grid">
+            <div class="future-item"><strong>Ứng dụng di động</strong><small>Push notification và trải nghiệm quét QR riêng.</small></div>
+            <div class="future-item"><strong>Thống kê nâng cao</strong><small>Xu hướng xác nhận theo tuần/tháng.</small></div>
+            <div class="future-item"><strong>Nhiều hộp / cơ sở chăm sóc</strong><small>Mô hình tổ chức và vai trò phức tạp hơn.</small></div>
+            <div class="future-item"><strong>Cập nhật firmware từ xa</strong><small>OTA có chữ ký và cơ chế rollback.</small></div>
+            <div class="future-item"><strong>Thông báo đa kênh</strong><small>Push/SMS sau khi đánh giá chi phí và quyền riêng tư.</small></div>
+            <div class="future-item"><strong>Tích hợp y tế</strong><small>Chỉ khi có chuyên gia, pháp lý và kiểm định phù hợp.</small></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="final-note">
+      <div class="container">
+        <div class="final-box">
+          <div><h3>Một câu để cả nhóm cùng nhớ</h3><p>Hộp thuốc thông minh giúp <strong>nhắc đúng lịch và ghi nhận mở nắp</strong>; hệ thống không thay thế tư vấn y tế và không được khẳng định người dùng chắc chắn đã uống thuốc.</p></div>
+          <div class="stamp">PHẠM VI MVP<br>ĐÃ CHỐT</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">Đồ án PRJ1 · Hộp thuốc thông minh · Tài liệu tổng hợp yêu cầu triển khai</div>
+  </footer>
+
+  <script>
+    (() => {
+      const printButton = document.getElementById('printButton');
+      const progress = document.getElementById('progress');
+      const navLinks = [...document.querySelectorAll('.nav a[href^="#"]')];
+      const sections = navLinks
+        .map(link => document.querySelector(link.getAttribute('href')))
+        .filter(Boolean);
+
+      printButton.addEventListener('click', () => window.print());
+
+      const updateProgress = () => {
+        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+        const percentage = scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0;
+        progress.style.width = `${Math.min(100, Math.max(0, percentage))}%`;
+      };
+
+      const observer = new IntersectionObserver(entries => {
+        const visible = entries
+          .filter(entry => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+        if (!visible) return;
+        navLinks.forEach(link => {
+          const isActive = link.getAttribute('href') === `#${visible.target.id}`;
+          link.classList.toggle('active', isActive);
+          if (isActive) link.setAttribute('aria-current', 'location');
+          else link.removeAttribute('aria-current');
+        });
+      }, { rootMargin: '-22% 0px -62% 0px', threshold: [0, .1, .3] });
+
+      sections.forEach(section => observer.observe(section));
+      window.addEventListener('scroll', updateProgress, { passive: true });
+      window.addEventListener('resize', updateProgress);
+      updateProgress();
+    })();
+  </script>
+</body>
+</html>

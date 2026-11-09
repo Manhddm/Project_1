@@ -10,14 +10,14 @@ public sealed class SchemaConstraintTests(SqlServerDatabaseFixture fixture)
 {
     private static readonly string[] ExpectedTables =
     [
-        "AlertRecipients", "Alerts", "ApplicationUsers", "AuditLogs", "CareRelationships",
+        "AlertRecipients", "Alerts", "ApplicationUsers", "AuditLogs", "AuthTokens", "CareRelationships",
         "Compartments", "DeviceEvents", "DevicePairingCodes", "Devices", "DoseInstances",
         "DoseItemSnapshots", "EmailDeliveries", "MedicationSchedules", "PrescriptionImages",
         "RelativeInvitations", "ScheduleDays", "ScheduleItems",
     ];
 
     [Fact]
-    public async Task Migration_CreatesAllSeventeenTables()
+    public async Task Migration_CreatesAllApplicationTables()
     {
         await using var db = fixture.CreateContext();
 
@@ -188,6 +188,29 @@ public sealed class SchemaConstraintTests(SqlServerDatabaseFixture fixture)
     }
 
     [Fact]
+    public async Task EmailDeliveries_RetryAddsAttemptWithoutDuplicateRecipient()
+    {
+        await using var db = fixture.CreateContext();
+        var dose = await SeedDoseAsync(db);
+        var recipientUser = NewUser();
+        db.ApplicationUsers.Add(recipientUser);
+        var alert = NewAlert(dose.Id, AlertType.OverdueUnconfirmed);
+        db.Alerts.Add(alert);
+        var recipient = NewRecipient(alert.Id, recipientUser.Id);
+        db.AlertRecipients.Add(recipient);
+        await db.SaveChangesAsync();
+
+        db.EmailDeliveries.Add(NewDelivery(recipient.Id, attemptNumber: 1));
+        await db.SaveChangesAsync();
+        db.EmailDeliveries.Add(NewDelivery(recipient.Id, attemptNumber: 2));
+        await db.SaveChangesAsync();
+
+        await using var verify = fixture.CreateContext();
+        Assert.Equal(2, await verify.EmailDeliveries.CountAsync(x => x.AlertRecipientId == recipient.Id));
+        Assert.Equal(1, await verify.AlertRecipients.CountAsync(x => x.AlertId == alert.Id));
+    }
+
+    [Fact]
     public async Task CareRelationships_ActivePairIsUnique_RevokedPairIsAllowed()
     {
         await using var db = fixture.CreateContext();
@@ -220,6 +243,77 @@ public sealed class SchemaConstraintTests(SqlServerDatabaseFixture fixture)
     }
 
     [Fact]
+    public async Task RelativeInvitations_PendingEmailIsNormalizedBeforeUniqueCheck()
+    {
+        await using var db = fixture.CreateContext();
+        var (device, _) = await SeedDeviceAsync(db);
+
+        db.RelativeInvitations.Add(NewInvitation(device.Id, " Relative@Example.com ", InvitationStatus.Pending));
+        await db.SaveChangesAsync();
+
+        db.RelativeInvitations.Add(NewInvitation(device.Id, "relative@example.com", InvitationStatus.Pending));
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task RelativeInvitations_RevokedInviteAllowsNewPendingAndKeepsHistory()
+    {
+        await using var db = fixture.CreateContext();
+        var (device, _) = await SeedDeviceAsync(db);
+        var first = NewInvitation(device.Id, "relative@example.com", InvitationStatus.Pending);
+        db.RelativeInvitations.Add(first);
+        await db.SaveChangesAsync();
+
+        first.Status = InvitationStatus.Revoked;
+        await db.SaveChangesAsync();
+
+        db.RelativeInvitations.Add(NewInvitation(device.Id, " Relative@Example.com ", InvitationStatus.Pending));
+        await db.SaveChangesAsync();
+
+        await using var verify = fixture.CreateContext();
+        Assert.Equal(2, await verify.RelativeInvitations.CountAsync(x => x.DeviceId == device.Id));
+    }
+
+    [Fact]
+    public async Task RelativeInvitations_ExpiresAtColumnIsRequired()
+    {
+        await using var db = fixture.CreateContext();
+
+        var isNullable = await db.Database
+            .SqlQueryRaw<string>(
+                "SELECT IS_NULLABLE AS [Value] FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'RelativeInvitations' AND COLUMN_NAME = 'ExpiresAt'")
+            .SingleAsync();
+
+        Assert.Equal("NO", isNullable);
+    }
+
+    [Fact]
+    public async Task CareRelationships_RevokeKeepsHistoryAndAllowsNewActive()
+    {
+        await using var db = fixture.CreateContext();
+        var (device, _) = await SeedDeviceAsync(db);
+        var relative = NewUser();
+        db.ApplicationUsers.Add(relative);
+        var first = NewRelationship(device.Id, relative.Id, RelationshipStatus.Active);
+        db.CareRelationships.Add(first);
+        await db.SaveChangesAsync();
+
+        first.Status = RelationshipStatus.Revoked;
+        first.RevokedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+
+        db.CareRelationships.Add(NewRelationship(device.Id, relative.Id, RelationshipStatus.Active));
+        await db.SaveChangesAsync();
+
+        await using var verify = fixture.CreateContext();
+        Assert.Equal(2, await verify.CareRelationships.CountAsync(x => x.DeviceId == device.Id));
+        var active = await verify.CareRelationships
+            .Where(x => x.DeviceId == device.Id && x.Status == RelationshipStatus.Active)
+            .ToListAsync();
+        Assert.Single(active);
+    }
+
+    [Fact]
     public async Task ScheduleDays_DuplicateDay_IsRejected()
     {
         await using var db = fixture.CreateContext();
@@ -230,6 +324,81 @@ public sealed class SchemaConstraintTests(SqlServerDatabaseFixture fixture)
         await using var retry = fixture.CreateContext();
         retry.ScheduleDays.Add(new ScheduleDay { ScheduleId = dose.ScheduleId, DayOfWeek = 2 });
         await Assert.ThrowsAsync<DbUpdateException>(() => retry.SaveChangesAsync());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(8)]
+    public async Task ScheduleDays_DayOutsideOneToSeven_IsRejected(int day)
+    {
+        await using var db = fixture.CreateContext();
+        var dose = await SeedDoseAsync(db);
+
+        db.ScheduleDays.Add(new ScheduleDay { ScheduleId = dose.ScheduleId, DayOfWeek = day });
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(121)]
+    public async Task MedicationSchedules_GraceOutsideOneToHundredTwenty_IsRejected(int grace)
+    {
+        await using var db = fixture.CreateContext();
+        var (device, compartment) = await SeedDeviceAsync(db);
+        var schedule = NewSchedule(device.Id, compartment.Id);
+        schedule.GracePeriodMinutes = grace;
+        db.MedicationSchedules.Add(schedule);
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task MedicationSchedules_EndDateBeforeStartDate_IsRejected()
+    {
+        await using var db = fixture.CreateContext();
+        var (device, compartment) = await SeedDeviceAsync(db);
+        var schedule = NewSchedule(device.Id, compartment.Id);
+        schedule.EndDate = schedule.StartDate.AddDays(-1);
+        db.MedicationSchedules.Add(schedule);
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task ScheduleItems_NonPositiveQuantity_IsRejected(int quantity)
+    {
+        await using var db = fixture.CreateContext();
+        var dose = await SeedDoseAsync(db);
+        db.ScheduleItems.Add(new ScheduleItem
+        {
+            Id = Guid.NewGuid(),
+            ScheduleId = dose.ScheduleId,
+            MedicineName = "Paracetamol",
+            Quantity = quantity,
+            Unit = "viên",
+            Instructions = "Sau ăn",
+        });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task MedicationSchedules_SoftDeleteKeepsRow()
+    {
+        await using var db = fixture.CreateContext();
+        var (device, compartment) = await SeedDeviceAsync(db);
+        var schedule = NewSchedule(device.Id, compartment.Id);
+        db.MedicationSchedules.Add(schedule);
+        await db.SaveChangesAsync();
+
+        schedule.IsDeleted = true;
+        await db.SaveChangesAsync();
+
+        await using var verify = fixture.CreateContext();
+        var stored = await verify.MedicationSchedules.AsNoTracking().SingleAsync(x => x.Id == schedule.Id);
+        Assert.True(stored.IsDeleted);
     }
 
     [Theory]
@@ -278,6 +447,33 @@ public sealed class SchemaConstraintTests(SqlServerDatabaseFixture fixture)
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
+    [Fact]
+    public async Task AuthTokens_DuplicateTokenHash_IsRejected()
+    {
+        await using var db = fixture.CreateContext();
+        var user = NewUser();
+        db.ApplicationUsers.Add(user);
+        db.AuthTokens.Add(NewAuthToken(user.Id, "same-token-hash"));
+        await db.SaveChangesAsync();
+
+        await using var retry = fixture.CreateContext();
+        retry.AuthTokens.Add(NewAuthToken(user.Id, "same-token-hash"));
+        await Assert.ThrowsAsync<DbUpdateException>(() => retry.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task AuthTokens_UnknownPurpose_IsRejected()
+    {
+        await using var db = fixture.CreateContext();
+        var user = NewUser();
+        db.ApplicationUsers.Add(user);
+        var token = NewAuthToken(user.Id, "hash-for-invalid-purpose");
+        token.Purpose = (AuthTokenPurpose)99;
+        db.AuthTokens.Add(token);
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
     private static async Task<(Device Device, Compartment Compartment)> SeedDeviceAsync(AppDbContext db)
     {
         var device = NewDevice();
@@ -307,6 +503,16 @@ public sealed class SchemaConstraintTests(SqlServerDatabaseFixture fixture)
         PasswordHash = "not-a-real-hash",
         EmailVerified = true,
         CreatedAt = DateTimeOffset.UtcNow,
+    };
+
+    private static AuthToken NewAuthToken(Guid userId, string tokenHash) => new()
+    {
+        Id = Guid.NewGuid(),
+        UserId = userId,
+        Purpose = AuthTokenPurpose.EmailVerification,
+        TokenHash = tokenHash,
+        CreatedAt = DateTimeOffset.UtcNow,
+        ExpiresAt = DateTimeOffset.UtcNow.AddHours(24),
     };
 
     private static Device NewDevice(Guid? ownerUserId = null) => new()

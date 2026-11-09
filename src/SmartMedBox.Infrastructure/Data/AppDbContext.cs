@@ -6,6 +6,7 @@ namespace SmartMedBox.Infrastructure.Data;
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<ApplicationUser> ApplicationUsers => Set<ApplicationUser>();
+    public DbSet<AuthToken> AuthTokens => Set<AuthToken>();
     public DbSet<CareRelationship> CareRelationships => Set<CareRelationship>();
     public DbSet<RelativeInvitation> RelativeInvitations => Set<RelativeInvitation>();
     public DbSet<Device> Devices => Set<Device>();

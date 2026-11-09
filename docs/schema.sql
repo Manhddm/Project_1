@@ -588,3 +588,72 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029081552_AddScheduleDateRangeCheck'
+)
+BEGIN
+    EXEC(N'ALTER TABLE [MedicationSchedules] ADD CONSTRAINT [CK_MedicationSchedules_DateRange] CHECK ([EndDate] IS NULL OR [EndDate] >= [StartDate])');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029081552_AddScheduleDateRangeCheck'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261029081552_AddScheduleDateRangeCheck', N'10.0.11');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029092143_AddAuthTokens'
+)
+BEGIN
+    CREATE TABLE [AuthTokens] (
+        [Id] uniqueidentifier NOT NULL DEFAULT (NEWSEQUENTIALID()),
+        [UserId] uniqueidentifier NOT NULL,
+        [Purpose] nvarchar(30) NOT NULL,
+        [TokenHash] nvarchar(500) NOT NULL,
+        [CreatedAt] datetimeoffset NOT NULL,
+        [ExpiresAt] datetimeoffset NOT NULL,
+        [UsedAt] datetimeoffset NULL,
+        CONSTRAINT [PK_AuthTokens] PRIMARY KEY ([Id]),
+        CONSTRAINT [CK_AuthTokens_Purpose] CHECK ([Purpose] IN (N'EmailVerification', N'PasswordReset')),
+        CONSTRAINT [FK_AuthTokens_ApplicationUsers_UserId] FOREIGN KEY ([UserId]) REFERENCES [ApplicationUsers] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029092143_AddAuthTokens'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_AuthTokens_TokenHash] ON [AuthTokens] ([TokenHash]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029092143_AddAuthTokens'
+)
+BEGIN
+    CREATE INDEX [IX_AuthTokens_UserId_Purpose_ExpiresAt] ON [AuthTokens] ([UserId], [Purpose], [ExpiresAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261029092143_AddAuthTokens'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261029092143_AddAuthTokens', N'10.0.11');
+END;
+
+COMMIT;
+GO
+

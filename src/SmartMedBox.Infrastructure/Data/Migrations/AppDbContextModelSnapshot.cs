@@ -174,6 +174,47 @@ namespace SmartMedBox.Infrastructure.Data.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("SmartMedBox.Domain.Entities.AuthToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Purpose", "ExpiresAt");
+
+                    b.ToTable("AuthTokens", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AuthTokens_Purpose", "[Purpose] IN (N'EmailVerification', N'PasswordReset')");
+                        });
+                });
+
             modelBuilder.Entity("SmartMedBox.Domain.Entities.CareRelationship", b =>
                 {
                     b.Property<Guid>("Id")
@@ -553,6 +594,8 @@ namespace SmartMedBox.Infrastructure.Data.Migrations
 
                     b.ToTable("MedicationSchedules", null, t =>
                         {
+                            t.HasCheckConstraint("CK_MedicationSchedules_DateRange", "[EndDate] IS NULL OR [EndDate] >= [StartDate]");
+
                             t.HasCheckConstraint("CK_MedicationSchedules_Grace", "[GracePeriodMinutes] BETWEEN 1 AND 120");
                         });
                 });
@@ -729,6 +772,15 @@ namespace SmartMedBox.Infrastructure.Data.Migrations
                         .WithMany()
                         .HasForeignKey("DeviceId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SmartMedBox.Domain.Entities.AuthToken", b =>
+                {
+                    b.HasOne("SmartMedBox.Domain.Entities.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SmartMedBox.Domain.Entities.CareRelationship", b =>

@@ -21,6 +21,29 @@ public sealed class ApplicationUserConfiguration : IEntityTypeConfiguration<Appl
     }
 }
 
+public sealed class AuthTokenConfiguration : IEntityTypeConfiguration<AuthToken>
+{
+    public void Configure(EntityTypeBuilder<AuthToken> builder)
+    {
+        builder.ToTable("AuthTokens", table =>
+            table.HasCheckConstraint(
+                "CK_AuthTokens_Purpose",
+                "[Purpose] IN (N'EmailVerification', N'PasswordReset')"));
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
+        builder.Property(x => x.Purpose)
+            .HasConversion<string>()
+            .HasColumnType("nvarchar(30)")
+            .IsRequired();
+        builder.Property(x => x.TokenHash).HasMaxLength(500).IsRequired();
+        builder.Property(x => x.CreatedAt).IsRequired();
+        builder.Property(x => x.ExpiresAt).IsRequired();
+        builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => x.TokenHash).IsUnique();
+        builder.HasIndex(x => new { x.UserId, x.Purpose, x.ExpiresAt });
+    }
+}
+
 public sealed class CareRelationshipConfiguration : IEntityTypeConfiguration<CareRelationship>
 {
     public void Configure(EntityTypeBuilder<CareRelationship> builder)

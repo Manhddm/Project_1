@@ -1,15 +1,33 @@
+using SmartMedBox.Domain.Accounts;
 using SmartMedBox.Domain.Enums;
 
 namespace SmartMedBox.Domain.Entities;
 
 public sealed class ApplicationUser
 {
+    private string _email = string.Empty;
+
     public Guid Id { get; set; }
-    public string Email { get; set; } = string.Empty;
+    public string Email
+    {
+        get => _email;
+        set => _email = EmailNormalizer.Normalize(value);
+    }
     public string PasswordHash { get; set; } = string.Empty;
     public bool EmailVerified { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public bool IsDeleted { get; set; }
+}
+
+public sealed class AuthToken
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public AuthTokenPurpose Purpose { get; set; }
+    public string TokenHash { get; set; } = string.Empty;
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset ExpiresAt { get; set; }
+    public DateTimeOffset? UsedAt { get; set; }
 }
 
 public sealed class CareRelationship
@@ -24,9 +42,15 @@ public sealed class CareRelationship
 
 public sealed class RelativeInvitation
 {
+    private string _inviteeEmail = string.Empty;
+
     public Guid Id { get; set; }
     public Guid DeviceId { get; set; }
-    public string InviteeEmail { get; set; } = string.Empty;
+    public string InviteeEmail
+    {
+        get => _inviteeEmail;
+        set => _inviteeEmail = EmailNormalizer.Normalize(value);
+    }
     public string TokenHash { get; set; } = string.Empty;
     public InvitationStatus Status { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }

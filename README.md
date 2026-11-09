@@ -25,13 +25,69 @@ Phụ thuộc project: `Api → Domain, Infrastructure`; `Infrastructure → Dom
 
 ## Chạy ứng dụng
 
+Trước khi chạy, **bắt buộc** cấu hình `ConnectionStrings:Default` và `Security:TokenPepper` (user-secrets hoặc biến môi trường — xem mục “Cấu hình & secret”). API kiểm tra cấu hình lúc khởi động và dừng ngay nếu thiếu.
+
 ```bash
 dotnet restore
 dotnet build
 dotnet run --project src/SmartMedBox.Api
 ```
 
-Mặc định: `https://localhost:7249` và `http://localhost:5189` (xem `src/SmartMedBox.Api/Properties/launchSettings.json`).
+Mặc định: `https://localhost:7249` và `http://localhost:5189` (xem `src/SmartMedBox.Api/Properties/launchSettings.json`). Dùng profile **https** khi thử luồng đăng nhập: cookie xác thực và CSRF đều đặt `Secure`, nên chỉ được gửi qua HTTPS.
+
+Thư mục runtime `src/SmartMedBox.Api/App_Data/` (đã gitignore) chứa email dev sink (`email-sink/`) và vùng file private (`uploads/`); đổi vị trí qua `EmailSink:DirectoryPath` và `FileStorage:RootPath` trong `appsettings.json`.
+
+### Tài khoản (P1-02)
+
+- `POST /api/auth/register` — tạo tài khoản chưa xác minh, gửi email chứa token (TTL 24 giờ) vào dev sink; trả `201`. Email đã tồn tại → `409` `EMAIL_TAKEN`; mật khẩu không đạt chính sách (≥ 8 ký tự gồm chữ và số, ≤ 128) → `400` `VALIDATION_ERROR`.
+- `POST /api/auth/verify-email` — dùng một lần; token sai/đã dùng → `400` `TOKEN_INVALID`, hết hạn → `410` `TOKEN_EXPIRED`.
+- `POST /api/auth/resend-verification` — luôn trả `202` với thông báo trung tính (không tiết lộ email có tồn tại); gửi token mới và vô hiệu token cũ.
+- Token chỉ lưu dạng `HMAC-SHA256(pepper, token)`; xem `Security:TokenPepper` bên dưới.
+
+### Quên & đặt lại mật khẩu (P1-04)
+
+- `POST /api/auth/forgot-password` — luôn trả `202` với thông báo trung tính (không tiết lộ email có tồn tại, kể cả email sai định dạng); gửi token TTL 24 giờ, dùng một lần và vô hiệu token đặt lại cũ.
+- `POST /api/auth/reset-password` — mật khẩu mới theo chính sách D-14; thành công trả `200` và **thu hồi mọi phiên đăng nhập cũ** của tài khoản. Token sai/đã dùng → `400` `TOKEN_INVALID`, hết hạn → `410` `TOKEN_EXPIRED`.
+
+### Xác thực Web (P1-03)
+
+- `POST /api/auth/login` đặt cookie `SmartMedBox.Auth` (HttpOnly, Secure, SameSite=Lax), thời hạn session 8 giờ; `POST /api/auth/logout` thu hồi session phía server; `GET /api/users/me` trả hồ sơ + hộp đã ghép (nếu có).
+- Mọi request ghi cần CSRF header `X-CSRF-TOKEN`. Hiện **chưa có** endpoint công khai phát token cho API client; UI Razor (UI-01) sẽ render token trong form. Session đang lưu in-memory (mất khi restart, không chia sẻ đa instance) — xem **D-27** trong [PLAN.md](PLAN.md#decision-log).
+
+## Cấu hình & secret
+
+Không đặt mật khẩu, khóa thiết bị, pepper hay chuỗi kết nối có thông tin đăng nhập trong `appsettings*.json` hay bất kỳ file nào được commit. API đọc chuỗi kết nối từ khóa `ConnectionStrings:Default`, lấy từ user-secrets khi phát triển cục bộ hoặc biến môi trường khi triển khai.
+
+`Security:TokenPepper` là pepper HMAC cho token xác minh email/đặt lại mật khẩu (P1-02, P1-04): **bắt buộc**, tối thiểu 32 ký tự, không có giá trị mặc định; API dừng khởi động nếu thiếu. Sinh giá trị ngẫu nhiên mạnh rồi lưu vào user-secrets/env, **không** ghi vào file mẫu hay bất kỳ file nào được commit. Đổi pepper sẽ làm mọi token đang phát hành mất hiệu lực.
+
+```bash
+# Sinh pepper (48 byte ngẫu nhiên → base64)
+openssl rand -base64 48
+```
+
+`appsettings.Development.sample.json` chỉ là mẫu tham khảo cho LocalDB (không chứa credential); không điền giá trị thật vào file mẫu hay bất kỳ `appsettings*.json` nào. Dùng user-secrets hoặc biến môi trường bên dưới.
+
+User-secrets (khuyến nghị khi phát triển):
+
+```bash
+dotnet user-secrets set "ConnectionStrings:Default" "Server=(localdb)\\MSSQLLocalDB;Database=SmartMedBox;Trusted_Connection=True;TrustServerCertificate=True" --project src/SmartMedBox.Api
+dotnet user-secrets set "Security:TokenPepper" "<pepper-ngẫu-nhiên-≥32-ký-tự>" --project src/SmartMedBox.Api
+dotnet user-secrets list --project src/SmartMedBox.Api
+```
+
+Biến môi trường (CI/triển khai), dùng dấu `__` cho cấu hình lồng nhau:
+
+```bash
+# Bash
+export ConnectionStrings__Default="Server=<host>;Database=SmartMedBox;User Id=<user>;Password=<password>;TrustServerCertificate=True"
+export Security__TokenPepper="<pepper-ngẫu-nhiên-≥32-ký-tự>"
+
+# PowerShell
+$env:ConnectionStrings__Default = "Server=<host>;Database=SmartMedBox;User Id=<user>;Password=<password>;TrustServerCertificate=True"
+$env:Security__TokenPepper = "<pepper-ngẫu-nhiên-≥32-ký-tự>"
+```
+
+Quy ước khác: `SMARTMEDBOX_CONNECTION` cho lệnh `dotnet ef` (design-time) và `SMARTMEDBOX_TEST_SERVER` cho integration test (xem mục Chạy test). Không log hoặc dán các giá trị này vào issue/PR.
 
 ## Chạy test
 
@@ -56,6 +112,7 @@ dotnet ef migrations add <Name> --project src/SmartMedBox.Infrastructure --start
 | D-07 | Thiết bị xác thực bằng header `X-Device-Id` + `X-Device-Api-Key`; khóa 32 byte base64url, lưu HMAC+pepper |
 | D-08 | Pairing code 8 ký tự Crockford Base32, hạn 15 phút; QR chỉ chứa `{"v":1,"code":"..."}` |
 | D-09 | Enum dùng chuỗi PascalCase cố định (API_CONTRACT §10.2); `daysOfWeek` 1–7 theo ISO-8601 |
+| D-14 | Mật khẩu ≥ 8 ký tự (chữ + số, ≤ 128); token xác minh/đặt lại TTL 24 giờ; lời mời hết hạn 7 ngày; rate limit login 10/15 phút/IP, pair 5/phút/IP, invitation 10/ngày, accept 10/phút/IP |
 
 ## Tài liệu
 
@@ -65,6 +122,7 @@ dotnet ef migrations add <Name> --project src/SmartMedBox.Infrastructure --start
 - [API_CONTRACT.md](API_CONTRACT.md) — hợp đồng API
 - [TEST_PLAN.md](TEST_PLAN.md) — kế hoạch kiểm thử (82 test case)
 - [TEST_REPORT.md](TEST_REPORT.md) — kết quả kiểm thử và defect log
+- [docs/requirements/Hop-thuoc-thong-minh.html](docs/requirements/Hop-thuoc-thong-minh.html) — bản sao đặc tả MVP để truy vết
 
 ## Bảo mật
 

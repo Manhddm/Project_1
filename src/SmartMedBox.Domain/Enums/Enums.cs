@@ -47,3 +47,9 @@ public enum EmailDeliveryStatus
     Failed,
     Exhausted,
 }
+
+public enum AuthTokenPurpose
+{
+    EmailVerification,
+    PasswordReset,
+}

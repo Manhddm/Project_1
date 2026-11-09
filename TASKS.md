@@ -1,8 +1,14 @@
 # TASKS.md — Checklist theo dõi tiến độ MVP Hộp thuốc thông minh
 
-> Phiên bản: 1.5 · Ngày: 2026-10-29 · Trạng thái: **P0-01, P0-02, P0-03 DONE; QA baseline: 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN — MVP NOT ACCEPTED**
+> Phiên bản: 2.6 · Ngày: 2026-10-29 · Trạng thái: **P0-01…P0-05, P1-01…P1-04, P2-01, P2-08, P3-01, P5-01 DONE; QA baseline: 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN — MVP NOT ACCEPTED**
 >
-> Bản 1.2 ghi nhận P0-01 hoàn thành và chốt D-01/D-02. Bản 1.3 cập nhật kết quả QA thực tế. Bản 1.4 ghi nhận P0-02 (schema + migration `InitialSchema`) hoàn thành. Bản 1.5 ghi nhận P0-03 hoàn thành: chốt D-07/D-08/D-09, quy ước ProblemDetails và catalog lỗi.
+> Bản 2.6 ghi nhận P1-04 hoàn thành: quên/đặt lại mật khẩu dùng `AuthTokens` (`PasswordReset`, TTL 24 giờ), thu hồi toàn bộ phiên sau khi đổi; chuỗi AC-12 (API) có test đầu-cuối.
+>
+> Bản 2.5 ghi nhận P1-02 hoàn thành: đăng ký + xác minh email theo D-14, bảng `AuthTokens` (HMAC+pepper, dùng một lần, TTL 24 giờ), pepper bắt buộc qua `Security:TokenPepper`.
+>
+> Bản 2.4 chốt D-05 (CLI nội bộ), D-10 (IANA theo từng lịch), D-14 (gói chính sách mật khẩu/token/rate limit/hạn lời mời), D-22 (giữ nguyên dose đã sinh).
+>
+> Bản 1.2 ghi nhận P0-01 hoàn thành và chốt D-01/D-02. Bản 1.3 cập nhật kết quả QA thực tế. Bản 1.4 ghi nhận P0-02 (schema + migration `InitialSchema`) hoàn thành. Bản 1.5 ghi nhận P0-03 hoàn thành: chốt D-07/D-08/D-09, quy ước ProblemDetails và catalog lỗi. Bản 1.6 ghi nhận P0-04 hoàn thành: `IClock`, email dev sink, `IFileStorage` private, middleware ProblemDetails + `traceId`, cấu hình logging không ghi header/body; bổ sung mã `405 METHOD_NOT_ALLOWED` (API_CONTRACT 1.4.1). Bản 1.7 ghi nhận P0-05 hoàn thành: `UserSecretsId`, mẫu cấu hình, hướng dẫn user-secrets/env, rà `.gitignore`, quét secret và xác minh clone sạch chạy được API. Bản 1.8 ghi nhận P1-01 hoàn thành: chuẩn hóa email trong entity, `IPasswordHasher` + `PasswordHasherService` (ASP.NET Core Identity), test trùng email khác hoa/thường và hash mật khẩu. Bản 1.9 ghi nhận P1-03 hoàn thành: cookie auth + CSRF (`X-CSRF-TOKEN`), session server-side thu hồi được, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/users/me`; ghi nhận **D-27** (session store in-memory + TTL 8 giờ là đề xuất, chưa chốt durable/multi-instance). Bản 2.0 ghi nhận P2-01 hoàn thành: `DeviceProvisioning` (Domain) + `DeviceProvisioningService` (Infrastructure) seed đúng 3 ngăn trong một transaction, test unit + integration. Bản 2.1 ghi nhận P2-08 hoàn thành: chuẩn hóa `InviteeEmail` trong entity, test filtered unique Pending theo email chuẩn hóa, revoked giữ lịch sử, `ExpiresAt` NOT NULL, quan hệ active/revoked. Bản 2.2 ghi nhận P3-01 hoàn thành: check `CK_MedicationSchedules_DateRange` + migration, `MedicationScheduleRules` (ít nhất 1 ngày, DayOfWeek 1–7, grace 1–120, timezone), test constraint/xóa mềm. Bản 2.3 ghi nhận P5-01 hoàn thành: xác nhận schema cảnh báo/recipient/delivery từ `InitialSchema`, test retry thêm attempt không nhân đôi recipient.
 >
 > Nguồn kế hoạch: [PLAN.md](PLAN.md) · Hợp đồng API: [API_CONTRACT.md](API_CONTRACT.md) · Quy tắc làm việc: [AGENTS.md](AGENTS.md) · Kế hoạch kiểm thử: [TEST_PLAN.md](TEST_PLAN.md) · Báo cáo kiểm thử: [TEST_REPORT.md](TEST_REPORT.md)
 
@@ -50,7 +56,7 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 
 **Cổng quyết định (chặn DONE, không chặn code thăm dò):**
 
-- [ ] **D-22 + D-23** chốt trước khi `P3-02`/`P3-03`/`P3-04` được đánh `DONE`.
+- [ ] **D-23** chốt trước khi `P3-02`/`P3-03`/`P3-04` được đánh `DONE` (D-22 đã chốt 2026-10-29: giữ nguyên dose đã sinh).
 - [ ] **D-24** chốt trước khi `P3-05`/`P4-03`/`P5-02`/`P5-05` được đánh `DONE`.
 - [ ] **D-25 + D-26** chốt trước khi `HW-04`/`P4-05` được đánh `DONE`.
 - [ ] **D-11 + D-12** chốt trước khi `P3-03`/`P4-04`/`P5-02` được đánh `DONE`.
@@ -64,8 +70,8 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 | [P0-01](PLAN.md#p0-01) | Chốt cấu trúc repo & skeleton | `DONE` | — | `dotnet build`: 0 warning/0 error · `HomePageTests.Get_Root_ReturnsHtmlPage` 1/1 pass · Kestrel: `GET /` 200 `text/html`, `GET /css/site.css` 200 | D-01 = Razor trong Api; D-02 = cookie + CSRF; scaffold MVC cũ đã xóa; xem §14 |
 | [P0-02](PLAN.md#p0-02) | Mô hình dữ liệu & migration đầu | `DONE` | P0-01 | `20261029070908_InitialSchema` apply trên LocalDB trống · `SchemaConstraintTests` 21/21 pass · full suite 22/22 · build 0W/0E | 17 bảng (bỏ `RefreshTokens` do D-02) + 4 index nóng + check enum; ERD [docs/erd.md](docs/erd.md), SQL [docs/schema.sql](docs/schema.sql); D-09 đã chốt tại P0-03, giá trị enum không đổi nên không cần migration mới |
 | [P0-03](PLAN.md#p0-03) | Chốt hợp đồng API & enum | `DONE` | P0-02 | API_CONTRACT v1.4 chốt D-07/D-08/D-09 + §1.4 ProblemDetails + catalog lỗi · `SharedEnumContractTests` 7/7 pass · full suite 29/29 · build 0W/0E · PLAN/AGENTS/README/docs/erd đồng bộ | D-07 = header + khóa 32 byte HMAC; D-08 = Crockford 8 ký tự/TTL 15 phút/QR `{v,code}`; D-09 = enum §10.2 + `daysOfWeek` ISO; các TBD khác giữ nhãn |
-| [P0-04](PLAN.md#p0-04) | Hạ tầng cắt ngang (ProblemDetails, clock, email, storage) | `TODO` | P0-01 | | D-03/D-04 |
-| [P0-05](PLAN.md#p0-05) | Secret & vệ sinh repo | `TODO` | P0-01 | | |
+| [P0-04](PLAN.md#p0-04) | Hạ tầng cắt ngang (ProblemDetails, clock, email, storage) | `DONE` | P0-01 | `ProblemDetailsTests` 7/7 (404/405/400 validation/JSON hỏng/415/500 không lộ chi tiết/logging không ghi header-body-query) · `SystemClockTests` 1/1 · `FileEmailSenderTests` 2/2 · `LocalFileStorageTests` 11/11 · full suite 50/50 · build 0W/0E · API_CONTRACT 1.4.1 bổ sung `405 METHOD_NOT_ALLOWED` · Kestrel: `/` + `/css/site.css` 200, `/api/xyz` 404 `application/problem+json` | D-03/D-04 vẫn TBD: chỉ triển khai dev sink file + local storage private theo [ĐỀ XUẤT] của PLAN. Health check [ĐỀ XUẤT] hoãn sang P7-04. Chi tiết §17 |
+| [P0-05](PLAN.md#p0-05) | Secret & vệ sinh repo | `DONE` | P0-01 | `<UserSecretsId>` cho `SmartMedBox.Api`; [appsettings.Development.sample.json](src/SmartMedBox.Api/appsettings.Development.sample.json) (LocalDB không credential); README mục “Cấu hình & secret” (user-secrets + `ConnectionStrings__Default`); `.gitignore` bổ sung `.env*`, `*.key`, `*.pem`; bản sao đặc tả [docs/requirements/Hop-thuoc-thong-minh.html](docs/requirements/Hop-thuoc-thong-minh.html); quét secret: không khớp mẫu credential thật (chỉ LocalDB không mật khẩu); export sạch 69 file → `dotnet build` 0W/0E → Kestrel `GET /` 200 HTML, CSS 200; full suite 50/50 | Không có secret/chuỗi kết nối thật trong git; DB runtime đọc `ConnectionStrings:Default` từ user-secrets/env (DbContext sẽ đăng ký tại P1-01). D-03/D-04 vẫn TBD, không ảnh hưởng task này |
 
 ---
 
@@ -73,12 +79,12 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 
 | ID | Task | Trạng thái | Phụ thuộc | Bằng chứng / Test | Ghi chú |
 |---|---|---|---|---|---|
-| [P1-01](PLAN.md#p1-01) | Entity người dùng & hash mật khẩu | `TODO` | P0-02 | | |
-| [P1-02](PLAN.md#p1-02) | Đăng ký & xác minh email | `TODO` | P1-01, P0-04 | | D-14 |
-| [P1-03](PLAN.md#p1-03) | Đăng nhập/đăng xuất/hồ sơ | `TODO` | P1-01, P0-03 | | D-02 đã chốt: cookie + CSRF, không có refresh/JWT |
-| [P1-04](PLAN.md#p1-04) | Quên & đặt lại mật khẩu | `TODO` | P1-01, P0-04 | | D-14 |
+| [P1-01](PLAN.md#p1-01) | Entity người dùng & hash mật khẩu | `DONE` | P0-02 | `EmailNormalizerTests` 8/8 (trim/lowercase, rỗng/quá dài, setter entity) · `PasswordHasherServiceTests` 8/8 (salt khác nhau, verify đúng/sai, hash hỏng) · `ApplicationUserTests` 2/2 (trùng email khác hoa/thường bị chặn, lưu email chuẩn hóa + hash) · full suite 68/68 · build 0W/0E | Không cần migration mới: `ApplicationUsers` + unique `Email` đã có từ `InitialSchema`. `IPasswordHasher` đăng ký singleton trong API; chuẩn hóa email áp dụng ngay trong setter entity. D-14 đã chốt sau task (mật khẩu ≥ 8 chữ+số ≤ 128), chưa áp validation ở P1-01 |
+| [P1-02](PLAN.md#p1-02) | Đăng ký & xác minh email | `DONE` | P1-01, P0-04 | `RegistrationApiTests` 12/12 (đăng ký tạo user chưa xác minh + email sink; trùng email khác hoa/thường → 409 `EMAIL_TAKEN`; mật khẩu yếu 3 case + email sai → 400 `VALIDATION_ERROR` kèm `errors`; token dùng lại/không tồn tại → 400 `TOKEN_INVALID`; hết hạn → 410 `TOKEN_EXPIRED`; resend ẩn danh → 202 không gửi mail; resend vô hiệu token cũ; response không chứa mật khẩu/token) · `PasswordPolicyTests` 12/12 · `SecureTokenTests` 2/2 · `HmacTokenHasherTests` 7/7 · `SchemaConstraintTests` 36/36 (thêm unique `TokenHash`, check `Purpose`) · migration `20261029092143_AddAuthTokens` · full suite 149/149 (83 unit + 66 integration) · build 0W/0E | Bảng `AuthTokens` [ĐỀ XUẤT KỸ THUẬT] (HTML không có); chỉ lưu `HMAC-SHA256(pepper, token)`, token 32 byte CSPRNG base64url dùng một lần. **Pepper bắt buộc** `Security:TokenPepper` ≥ 32 ký tự, không có mặc định — API dừng khởi động nếu thiếu. TTL 24 giờ theo D-14. Resend vô hiệu token cũ là [ĐỀ XUẤT]. Gửi email qua `IEmailSender` hiện có (D-03 vẫn TBD); rate limit login/resend thuộc P1-06 |
+| [P1-03](PLAN.md#p1-03) | Đăng nhập/đăng xuất/hồ sơ | `DONE` | P1-01, P0-03 | `AuthApiTests` 6/6 (thiếu CSRF → 400 `CSRF_INVALID`; sai mật khẩu vs email không tồn tại cùng 401; chưa xác minh → 403; login đặt cookie `Secure`/`HttpOnly`/`SameSite=Lax` + `GET /api/users/me` 200; logout thu hồi session phía server, cookie cũ hết hiệu lực; ẩn danh → 401) · `InMemoryUserSessionStoreTests` 6/6 · full suite 80/80 (43 unit + 37 integration) · build 0W/0E | D-02: cookie + CSRF, không refresh/JWT. Production chưa có endpoint phát CSRF token cho API client — UI-01 (Razor) sẽ render token trong form. **D-27 mới**: session lưu in-memory + TTL 8 giờ là [ĐỀ XUẤT], chưa chốt durable/multi-instance |
+| [P1-04](PLAN.md#p1-04) | Quên & đặt lại mật khẩu | `DONE` | P1-01, P0-04 | `PasswordResetApiTests` 10/10 (forgot email lạ/không hợp lệ → 202 không gửi; token đúng purpose/TTL 24h; forgot lần 2 vô hiệu token cũ; reset đúng → mật khẩu cũ hết hiệu lực, mật khẩu mới đăng nhập được, phiên cũ bị thu hồi, token dùng lại → `TOKEN_INVALID`; mật khẩu yếu → `VALIDATION_ERROR` và token còn dùng được; token lạ → 400; token hết hạn → 410; chuỗi AC-12 đăng ký→xác minh→đăng nhập→quên→đặt lại→đăng nhập) · `InMemoryUserSessionStoreTests` thêm 1 test `RevokeAllForUser` 7/7 · full suite 160/160 (84 unit + 76 integration) · build 0W/0E | Dùng lại `AuthTokens` (`Purpose=PasswordReset`), không cần migration mới. Chỉ token mới nhất còn hiệu lực; đổi mật khẩu tiêu thụ token trong transaction + thu hồi toàn bộ session (thêm `IUserSessionStore.RevokeAllForUser`). Forgot luôn 202 kể cả email sai định dạng (không liệt kê tài khoản). Rate limit thuộc P1-06 |
 | [P1-05](PLAN.md#p1-05) | Phân quyền theo hộp (owner/relative) | `TODO` | P1-03 | | Hoàn thiện sau P2-08 |
-| [P1-06](PLAN.md#p1-06) | Rate limiting & chống lạm dụng | `TODO` | P1-03 | | D-14 |
+| [P1-06](PLAN.md#p1-06) | Rate limiting & chống lạm dụng | `TODO` | P1-03 | | D-14 đã chốt: login 10/15 phút/IP, pair 5/phút/IP, invitation 10/ngày, accept 10/phút/IP; 429 + `Retry-After` |
 
 ---
 
@@ -86,15 +92,15 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 
 | ID | Task | Trạng thái | Phụ thuộc | Bằng chứng / Test | Ghi chú |
 |---|---|---|---|---|---|
-| [P2-01](PLAN.md#p2-01) | Entity Devices/PairingCodes/Compartments | `TODO` | P0-02 | | |
-| [P2-02](PLAN.md#p2-02) | Provision & sinh khóa thiết bị | `TODO` | P2-01, P0-05 | | D-05, D-08 |
+| [P2-01](PLAN.md#p2-01) | Entity Devices/PairingCodes/Compartments | `DONE` | P0-02 | `DeviceProvisioningTests` unit 7/7 (đúng 3 ngăn slot 1–3 tên Sáng/Trưa/Tối, owner NULL, trim, chặn rỗng/quá dài) · integration 2/2 (lưu device + đúng 3 ngăn; `DeviceId` trùng → không tạo ngăn cho lần lỗi) · full suite 89/89 · build 0W/0E | Entities + migration có từ `InitialSchema` (không cần migration mới). Bổ sung `DeviceProvisioning` (Domain) + `DeviceProvisioningService` (Infrastructure, một `SaveChanges` = một transaction), DI scoped. `DeviceApiKeyHash` chưa lộ ra API (chưa có endpoint) |
+| [P2-02](PLAN.md#p2-02) | Provision & sinh khóa thiết bị | `TODO` | P2-01, P0-05 | | D-05 đã chốt: CLI nội bộ trong `tools/`, không endpoint admin; D-08: pairing code 8 ký tự/15 phút |
 | [P2-03](PLAN.md#p2-03) | Payload QR & in nhãn | `TODO` | P2-02 | | D-08 |
 | [P2-04](PLAN.md#p2-04) | API ghép hộp atomic, một lần | `TODO` | P2-01, P2-02, P1-02, P1-05 | | AC-08, rate limit pair |
 | [P2-05](PLAN.md#p2-05) | API trạng thái hộp của tôi | `TODO` | P2-04 | | |
 | [P2-06](PLAN.md#p2-06) | Xác thực thiết bị | `TODO` | P2-02 | | D-07 |
 | [P2-07](PLAN.md#p2-07) | Heartbeat Unpaired/Paired | `TODO` | P2-06 | | |
-| [P2-08](PLAN.md#p2-08) | Entity CareRelationships/RelativeInvitations | `TODO` | P2-01, P1-01 | | |
-| [P2-09](PLAN.md#p2-09) | API lời mời người thân | `TODO` | P2-08, P1-06, P0-04 | | D-14; flow người chưa có tài khoản |
+| [P2-08](PLAN.md#p2-08) | Entity CareRelationships/RelativeInvitations | `DONE` | P2-01, P1-01 | `RelativeInvitationTests` 3/3 (email chuẩn hóa trim/lowercase, chặn rỗng) · `SchemaConstraintTests` bổ sung: pending trùng sau chuẩn hóa bị chặn; revoked cho phép mời lại + giữ lịch sử; `ExpiresAt` NOT NULL; relationship revoke giữ lịch sử + tạo active mới · full suite 96/96 · build 0W/0E | Entities/migration có từ `InitialSchema`; bổ sung setter chuẩn hóa `InviteeEmail` trong entity. D-14 đã chốt sau task: hạn lời mời 7 ngày — áp `ExpiresAt` khi tạo invitation ở P2-09 |
+| [P2-09](PLAN.md#p2-09) | API lời mời người thân | `TODO` | P2-08, P1-06, P0-04 | | D-14: lời mời hết hạn 7 ngày, 10 lần/ngày; flow người chưa có tài khoản |
 | [P2-10](PLAN.md#p2-10) | API quan hệ & ngừng theo dõi | `TODO` | P2-09, P1-05 | | AC-07 |
 
 ---
@@ -103,10 +109,10 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 
 | ID | Task | Trạng thái | Phụ thuộc | Bằng chứng / Test | Ghi chú |
 |---|---|---|---|---|---|
-| [P3-01](PLAN.md#p3-01) | Entity lịch & thuốc | `TODO` | P2-01 | | D-10 |
-| [P3-02](PLAN.md#p3-02) | CRUD lịch & ScheduleVersion | `TODO` | P3-01, P1-05 | | AC-07, AC-10, D-22, D-23 |
-| [P3-03](PLAN.md#p3-03) | Sinh DoseInstances + snapshot | `TODO` | P3-01, P0-04 | | AC-10, D-11, D-22, D-23 |
-| [P3-04](PLAN.md#p3-04) | Đồng bộ lịch cho thiết bị | `TODO` | P3-01, P3-02, P2-07 | | timezone từng lịch, D-22 |
+| [P3-01](PLAN.md#p3-01) | Entity lịch & thuốc | `DONE` | P2-01 | `MedicationScheduleRulesTests` 9/9 (ít nhất 1 ngày, `EndDate >= StartDate`, DayOfWeek 1–7 không trùng, grace 1–120, timezone bắt buộc) · `SchemaConstraintTests` thêm 8 test (grace 0/121, `EndDate` trước `StartDate`, DayOfWeek 0/8, Quantity ≤ 0, xóa mềm giữ hàng) · migration `20261029081552_AddScheduleDateRangeCheck` · full suite 113/113 · build 0W/0E | Entities + composite PK có từ `InitialSchema`; bổ sung check `CK_MedicationSchedules_DateRange` + `MedicationScheduleRules` (Domain). D-10 đã chốt sau task: `TimeZoneId` IANA theo từng lịch, mặc định `Asia/Ho_Chi_Minh` — cần áp khi làm P3-02 (validation IANA). D-22 đã chốt, D-23 còn TBD |
+| [P3-02](PLAN.md#p3-02) | CRUD lịch & ScheduleVersion | `TODO` | P3-01, P1-05 | | AC-07, AC-10; D-22 đã chốt giữ nguyên dose; còn D-23 |
+| [P3-03](PLAN.md#p3-03) | Sinh DoseInstances + snapshot | `TODO` | P3-01, P0-04 | | AC-10; D-22 đã chốt; còn D-11, D-23 |
+| [P3-04](PLAN.md#p3-04) | Đồng bộ lịch cho thiết bị | `TODO` | P3-01, P3-02, P2-07 | | timezone từng lịch (D-10 đã chốt), D-22 đã chốt |
 | [P3-05](PLAN.md#p3-05) | Máy trạng thái lần uống | `TODO` | P3-03 | | D-24 |
 | [P3-06](PLAN.md#p3-06) | API dashboard & lịch sử | `TODO` | P3-05, P1-05 | | AC-06 |
 
@@ -128,7 +134,7 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 
 | ID | Task | Trạng thái | Phụ thuộc | Bằng chứng / Test | Ghi chú |
 |---|---|---|---|---|---|
-| [P5-01](PLAN.md#p5-01) | Entity Alerts/AlertRecipients/EmailDeliveries | `TODO` | P3-01, P2-08 | | D-09 |
+| [P5-01](PLAN.md#p5-01) | Entity Alerts/AlertRecipients/EmailDeliveries | `DONE` | P3-01, P2-08 | `SchemaConstraintTests` 4 test cảnh báo (chặn recipient trùng `(AlertId, RecipientUserId, Channel)`, chặn 2 alert cùng loại/dose, chặn attempt trùng số, retry thêm attempt không thêm recipient) · full suite 114/114 · build 0W/0E | Entities + migration + index `EmailDeliveries(Status, NextAttemptAt)` có từ `InitialSchema`; D-09 đã chốt. [ĐỀ XUẤT] `LockedBy` chưa thêm — P5-03 sẽ claim bằng `LockedUntil` + điều kiện nguyên tử, bổ sung nếu cần |
 | [P5-02](PLAN.md#p5-02) | Job đánh giá quá hạn & tạo cảnh báo | `TODO` | P5-01, P3-05, P4-04, P2-08 | | AC-09, D-24; transaction alert+recipients |
 | [P5-03](PLAN.md#p5-03) | Worker gửi email & retry độc lập | `TODO` | P5-01, P0-04 | | D-03, D-13; claim/lease, 2 worker |
 | [P5-04](PLAN.md#p5-04) | Mẫu email & nội dung bắt buộc | `TODO` | P5-03 | | AC-06 |
@@ -210,7 +216,7 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 | AC-09 | Email quá hạn đủ chủ + mọi relative Accepted; retry không nhân đôi | `NOT_RUN` | TC-ALERT-003, TC-ALERT-006 — chưa có P5-02/P5-03, D-03 chưa chốt |
 | AC-10 | Snapshot không đổi ngược khi sửa lịch/thuốc | `NOT_RUN` | TC-SCHED-006, TC-DOSE-001, TC-DOSE-008 — chưa có P0-02/P3-03 |
 | AC-11 | Ảnh sai loại/quá 5 MB bị từ chối; loại EXIF; file ngoài DB | `NOT_RUN` | TC-IMG-002…TC-IMG-007 — chưa có P6-*, D-04 chưa chốt |
-| AC-12 | Đăng ký → xác minh → đăng nhập → quên/đặt lại hoạt động | `NOT_RUN` | TC-AUTH-001, TC-AUTH-004…007 — chưa có P1-02…P1-04 |
+| AC-12 | Đăng ký → xác minh → đăng nhập → quên/đặt lại hoạt động | `NOT_RUN` | TC-AUTH-001, TC-AUTH-004…007 — chuỗi API đã có test đầu-cuối `AccountFlow_RegisterVerifyLoginForgotReset_EndToEnd` (P1-02…P1-04); chưa kiểm chứng UI (UI-01) nên chưa đạt theo QA |
 
 ### 13.1. Kịch bản kiểm thử tối thiểu (dùng cho P7-02)
 
@@ -258,6 +264,16 @@ Kết luận: **MVP NOT ACCEPTED**. Nguyên nhân gốc: P0-02…P7-06 chưa tri
 | 2026-10-29 | QA baseline | — → 1 PASS / 82 | `dotnet build` 0W/0E; `dotnet test` 1/1 pass; `GET /api/users/me` & `/api/schedules` → 404; [TEST_PLAN.md](TEST_PLAN.md) + [TEST_REPORT.md](TEST_REPORT.md); 0/12 AC đạt | QA Automation |
 | 2026-10-29 | P0-02 | `TODO` → `DONE` | Migration `20261029070908_InitialSchema` apply trên DB LocalDB trống; `SchemaConstraintTests` 21/21; full suite 22/22; build 0W/0E; [docs/erd.md](docs/erd.md) + [docs/schema.sql](docs/schema.sql) | Agent |
 | 2026-10-29 | P0-03 | `TODO` → `DONE` | [API_CONTRACT.md](API_CONTRACT.md) v1.4 (D-07/D-08/D-09, §1.4/§1.5, error catalog); `SharedEnumContractTests` 7/7; full suite 29/29; build 0W/0E | Agent |
+| 2026-10-29 | P0-04 | `TODO` → `DONE` | `ProblemDetailsTests` 7/7, `SystemClockTests` 1/1, `FileEmailSenderTests` 2/2, `LocalFileStorageTests` 11/11; full suite 50/50; build 0W/0E; [API_CONTRACT.md](API_CONTRACT.md) v1.4.1 (405); Kestrel smoke: `/` 200, CSS 200, `/api/xyz` 404 problem+json | Agent |
+| 2026-10-29 | P0-05 | `TODO` → `DONE` | Quét secret: 0 khớp mẫu credential (chỉ LocalDB không mật khẩu); export 69 file từ working tree → build 0W/0E, Kestrel `/` 200 HTML + CSS 200; full suite 50/50; [README.md](README.md) hướng dẫn user-secrets/env; đặc tả copy vào [docs/requirements/](docs/requirements/Hop-thuoc-thong-minh.html) | Agent |
+| 2026-10-29 | P1-01 | `TODO` → `DONE` | `EmailNormalizerTests` 8/8; `PasswordHasherServiceTests` 8/8; `ApplicationUserTests` 2/2; full suite 68/68; build 0W/0E; không cần migration mới | Agent |
+| 2026-10-29 | P1-03 | `TODO` → `DONE` | `AuthApiTests` 6/6; `InMemoryUserSessionStoreTests` 6/6; full suite 80/80 (43 unit + 37 integration); build 0W/0E; CSRF global filter + `GET /api/users/me`; D-27 ghi nhận tại PLAN/API_CONTRACT | Agent |
+| 2026-10-29 | P2-01 | `TODO` → `DONE` | `DeviceProvisioningTests` unit 7/7 + integration 2/2; full suite 89/89 (50 unit + 39 integration); build 0W/0E; `DeviceProvisioning` (Domain) + `DeviceProvisioningService` (Infrastructure); không cần migration mới | Agent |
+| 2026-10-29 | P2-08 | `TODO` → `DONE` | `RelativeInvitationTests` 3/3; `SchemaConstraintTests` thêm 4 test (pending trùng sau chuẩn hóa, revoked giữ lịch sử, `ExpiresAt` NOT NULL, relationship revoke/re-accept); full suite 96/96; build 0W/0E; không cần migration mới | Agent |
+| 2026-10-29 | P3-01 | `TODO` → `DONE` | `MedicationScheduleRulesTests` 9/9; `SchemaConstraintTests` thêm 8 test; migration `20261029081552_AddScheduleDateRangeCheck`; full suite 113/113 (62 unit + 51 integration); build 0W/0E; [docs/schema.sql](docs/schema.sql) + [docs/erd.md](docs/erd.md) cập nhật | Agent |
+| 2026-10-29 | P5-01 | `TODO` → `DONE` | `SchemaConstraintTests` 4 test cảnh báo/recipient/delivery + retry; full suite 114/114 (62 unit + 52 integration); build 0W/0E; không cần migration mới | Agent |
+| 2026-10-29 | P1-02 | `TODO` → `DONE` | `RegistrationApiTests` 12/12; `PasswordPolicyTests` 12/12; `SecureTokenTests` 2/2; `HmacTokenHasherTests` 7/7; `SchemaConstraintTests` 36/36; migration `20261029092143_AddAuthTokens`; full suite 149/149 (83 unit + 66 integration); build 0W/0E; [README.md](README.md) hướng dẫn `Security:TokenPepper`; [docs/erd.md](docs/erd.md) + [docs/schema.sql](docs/schema.sql) cập nhật | Agent |
+| 2026-10-29 | P1-04 | `TODO` → `DONE` | `PasswordResetApiTests` 10/10 (gồm chuỗi AC-12 API); `InMemoryUserSessionStoreTests` 7/7 (`RevokeAllForUser`); full suite 160/160 (84 unit + 76 integration); build 0W/0E; không cần migration mới; [README.md](README.md) bổ sung endpoint quên/đặt lại | Agent |
 
 ---
 
@@ -295,12 +311,82 @@ Kết luận: **MVP NOT ACCEPTED**. Nguyên nhân gốc: P0-02…P7-06 chưa tri
 - [x] P0-03c — chốt D-09: enum §10.2, `daysOfWeek` ISO-8601, `Channel = Email`
 - [x] P0-03d — quy ước ProblemDetails + catalog lỗi + test khóa enum
 
+### P0-04 · Hạ tầng cắt ngang
+
+- [x] P0-04a — `IClock`/`SystemClock` + `FakeClock` cho test
+- [x] P0-04b — `IEmailSender` + `FileEmailSender` dev sink (`.eml`, chặn header injection, không log nội dung)
+- [x] P0-04c — `IFileStorage` + `LocalFileStorage` (key ngẫu nhiên, chặn path traversal, ngoài `wwwroot`, `App_Data/` gitignore)
+- [x] P0-04d — ProblemDetails middleware: exception 500, status-code 400/401/403/404/405/409/413/415/429/5xx, validation 400 camelCase, `traceId`
+- [x] P0-04e — logging HTTP chỉ method/path/status/duration; test không ghi header/body/query
+- [x] P0-04f — định tuyến: route MVC mặc định loại `/api` + `UseStaticFiles` để 405 không bị fallback static che thành 404
+- [x] P0-04g — `ProblemDetailsFactory` tùy biến: 415/4xx do MVC sinh cũng có `code` + `traceId`
+
+### P0-05 · Secret & vệ sinh repo
+
+- [x] P0-05a — `UserSecretsId` cho `SmartMedBox.Api` + mẫu `appsettings.Development.sample.json` (LocalDB, không credential)
+- [x] P0-05b — README: user-secrets, biến môi trường `ConnectionStrings__Default`, quy ước `SMARTMEDBOX_CONNECTION`/`SMARTMEDBOX_TEST_SERVER`
+- [x] P0-05c — rà `.gitignore` (`.env*`, `*.key`, `*.pem`, `appsettings.*.local.json`, `App_Data/`)
+- [x] P0-05d — quét secret working tree: không có credential thật; lưu bản sao đặc tả vào `docs/requirements/`
+- [x] P0-05e — xác minh export sạch build 0W/0E + chạy API 200; full suite 50/50
+
+### P1-01 · Entity người dùng & hash mật khẩu
+
+- [x] P1-01a — `EmailNormalizer` (trim/lowercase, giới hạn 320) + áp dụng trong setter `ApplicationUser.Email`
+- [x] P1-01b — `IPasswordHasher` + `PasswordHasherService` dùng `PasswordHasher<ApplicationUser>`; không lưu mật khẩu rõ
+- [x] P1-01c — test unit chuẩn hóa email/hash và test tích hợp trùng email khác hoa/thường bị chặn
+- [x] P1-01d — xác nhận schema hiện có đủ, không cần migration mới; đăng ký DI
+
+### P1-02 · Đăng ký & xác minh email
+
+- [x] P1-02a — `PasswordPolicy` (≥ 8, ≤ 128, chữ + số) + `SecureToken` (32 byte CSPRNG, base64url) + `AuthTokenLifetime` 24 giờ theo D-14
+- [x] P1-02b — `AuthToken` entity + cấu hình: check `Purpose`, unique `TokenHash`, index `(UserId, Purpose, ExpiresAt)`, migration `AddAuthTokens`
+- [x] P1-02c — `ITokenHasher`/`HmacTokenHasher` (HMAC-SHA256 + pepper `Security:TokenPepper` bắt buộc ≥ 32 ký tự) + `EmailTemplates` tiếng Việt
+- [x] P1-02d — `RegistrationService`: đăng ký + token trong một transaction (bắt unique race → `EMAIL_TAKEN`), xác minh dùng một lần nguyên tử, resend trung tính
+- [x] P1-02e — `POST /api/auth/register|verify-email|resend-verification` (401/409/410/400 theo API_CONTRACT) + test tích hợp trên HTTPS
+
+### P1-03 · Đăng nhập/đăng xuất/hồ sơ
+
+- [x] P1-03a — cookie authentication (`SmartMedBox.Auth`, `Secure`/`HttpOnly`/`SameSite=Lax`) + antiforgery global (`X-CSRF-TOKEN`), lỗi 401/403 dạng ProblemDetails
+- [x] P1-03b — `POST /api/auth/login`: chuẩn hóa email, verify hash, chặn email chưa xác minh, không phân biệt sai mật khẩu/email không tồn tại
+- [x] P1-03c — session server-side (`IUserSessionStore`) + `session_id` claim, thu hồi khi logout; `GET /api/users/me` trả hồ sơ + `ownedDevice`
+- [x] P1-03d — test tích hợp trên HTTPS (cookie Secure), CSRF thiếu/sai, thu hồi session sau logout; unit test session store
+- [ ] P1-03e — chốt D-27 (durable/multi-instance session, TTL) trước khi dùng cho môi trường thật
+
+### P1-04 · Quên & đặt lại mật khẩu
+
+- [x] P1-04a — `ForgotPasswordAsync`: chuẩn hóa email, im lặng với email lạ/không hợp lệ; mỗi lần chỉ token mới nhất còn hiệu lực
+- [x] P1-04b — `ResetPasswordAsync`: tiêu thụ token nguyên tử trong transaction, cập nhật hash, vô hiệu các token đặt lại khác
+- [x] P1-04c — `IUserSessionStore.RevokeAllForUser` thu hồi mọi phiên sau khi đổi mật khẩu
+- [x] P1-04d — `POST /api/auth/forgot-password|reset-password` + `EmailTemplates.PasswordReset` tiếng Việt
+- [x] P1-04e — test tích hợp đầy đủ (202 trung tính, token một lần/hết hạn, thu hồi phiên) + chuỗi AC-12 mức API
+
+### P2-01 · Entity Devices / PairingCodes / Compartments
+
+- [x] P2-01a — xác nhận entities + migration có từ P0-02, không cần migration mới
+- [x] P2-01b — `DeviceProvisioning.Create` seed đúng 3 ngăn slot 1–3 (Sáng/Trưa/Tối), owner NULL, trim/validate độ dài
+- [x] P2-01c — `DeviceProvisioningService.ProvisionAsync` lưu device + 3 ngăn trong một transaction; test lỗi `DeviceId` trùng không tạo ngăn
+- [x] P2-01d — giữ pass các test ràng buộc sẵn có từ P0-02 (owner unique, `(DeviceId, SlotNumber)` unique, slot 1–3)
+
+### P2-08 · Entity CareRelationships / RelativeInvitations
+
+- [x] P2-08a — xác nhận entities + migration có từ `InitialSchema`; filtered unique `(DeviceId, RelativeUserId)` Active và `(DeviceId, InviteeEmail)` Pending
+- [x] P2-08b — chuẩn hóa `InviteeEmail` (trim/lowercase) ngay trong entity để unique index so khớp đúng
+- [x] P2-08c — test chặn 2 lời mời Pending trùng (kể cả khác hoa/thường/khoảng trắng); revoked giữ lịch sử và cho phép mời lại
+- [x] P2-08d — test `ExpiresAt` NOT NULL; relationship revoke giữ hàng cũ + tạo Active mới; chặn 2 Active trùng
+
 ### P2-09 · Lời mời người thân
 
 - [ ] P2-09a — entity/validation + chặn trùng Pending/relationship
 - [ ] P2-09b — tạo/revoke/list invitation + audit
 - [ ] P2-09c — email token một lần + flow người chưa có tài khoản
 - [ ] P2-09d — accept transaction + sai email/hết hạn/dùng lại + rate limit
+
+### P3-01 · Entity lịch & thuốc
+
+- [x] P3-01a — xác nhận entities + PK kép `ScheduleDays` có từ `InitialSchema`
+- [x] P3-01b — thêm check `CK_MedicationSchedules_DateRange`, migration `AddScheduleDateRangeCheck`, regenerate [docs/schema.sql](docs/schema.sql)
+- [x] P3-01c — `MedicationScheduleRules.EnsureValid`: ít nhất 1 ngày, DayOfWeek 1–7 không trùng, grace 1–120, timezone bắt buộc
+- [x] P3-01d — test DB: grace/DayOfWeek/quantity ngoài miền bị chặn, `EndDate < StartDate` bị chặn, xóa mềm giữ hàng
 
 ### P3-03 · Sinh dose & snapshot
 
@@ -315,6 +401,13 @@ Kết luận: **MVP NOT ACCEPTED**. Nguyên nhân gốc: P0-02…P7-06 chưa tri
 - [ ] P4-02b — xử lý theo thứ tự `occurredAt`/`eventId`, idempotent
 - [ ] P4-02c — kết quả từng phần tử + phần tử lỗi không rollback phần tử hợp lệ
 - [ ] P4-02d — test gửi lặp 3 lần, batch xáo thứ tự, event tương lai
+
+### P5-01 · Entity Alerts / AlertRecipients / EmailDeliveries
+
+- [x] P5-01a — xác nhận entities + migration + unique `(AlertId, RecipientUserId, Channel)` và `(DoseInstanceId, AlertType)` có từ `InitialSchema`
+- [x] P5-01b — `EmailDeliveries` có `AttemptNumber`/`NextAttemptAt`/`SentAt`/`ProviderMessageId`/`LockedUntil`; unique `(AlertRecipientId, AttemptNumber)`; index `(Status, NextAttemptAt)`
+- [x] P5-01c — test chặn recipient trùng, 2 alert cùng loại, 2 attempt cùng số
+- [x] P5-01d — test retry thêm `EmailDeliveries` mới mà không tạo recipient mới
 
 ### P5-02 · Job cảnh báo
 
