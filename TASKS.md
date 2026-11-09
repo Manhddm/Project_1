@@ -1,6 +1,8 @@
 # TASKS.md — Checklist theo dõi tiến độ MVP Hộp thuốc thông minh
 
-> Phiên bản: 2.8 · Ngày: 2026-11-09 · Trạng thái: **P0-01…P0-05, P1-01…P1-06, P2-01, P2-08, P3-01, P5-01 DONE; QA baseline: 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN — MVP NOT ACCEPTED**
+> Phiên bản: 2.9 · Ngày: 2026-11-09 · Trạng thái: **P0-01…P0-05, P1-01…P1-06, P2-01, P2-02, P2-06…P2-10, P3-01, P5-01, P7-04, UI-01 DONE; P2-03, P3-02 IN_PROGRESS; QA baseline: 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN — MVP NOT ACCEPTED**
+>
+> Bản 2.9 ghi nhận đợt song song (5 subagent, merge vào `main`): P2-02, P2-06, P2-07, P2-09, P2-10, P7-04, UI-01 DONE; P2-03 và P3-02 IN_PROGRESS (P3-02 chặn bởi D-23). Ghi nhận **D-29**, **D-30**, mâu thuẫn khóa rate limit accept, và lệch schema timestamp của lịch.
 >
 > Bản 2.8 ghi nhận P1-06 hoàn thành: rate limit sliding window theo D-14 (login/pair/accept theo IP, invitation theo người dùng), 429 `RATE_LIMITED` + `Retry-After`, ngưỡng cấu hình được; ghi nhận **D-28** (ngưỡng các endpoint auth còn lại).
 >
@@ -97,15 +99,15 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 | ID | Task | Trạng thái | Phụ thuộc | Bằng chứng / Test | Ghi chú |
 |---|---|---|---|---|---|
 | [P2-01](PLAN.md#p2-01) | Entity Devices/PairingCodes/Compartments | `DONE` | P0-02 | `DeviceProvisioningTests` unit 7/7 (đúng 3 ngăn slot 1–3 tên Sáng/Trưa/Tối, owner NULL, trim, chặn rỗng/quá dài) · integration 2/2 (lưu device + đúng 3 ngăn; `DeviceId` trùng → không tạo ngăn cho lần lỗi) · full suite 89/89 · build 0W/0E | Entities + migration có từ `InitialSchema` (không cần migration mới). Bổ sung `DeviceProvisioning` (Domain) + `DeviceProvisioningService` (Infrastructure, một `SaveChanges` = một transaction), DI scoped. `DeviceApiKeyHash` chưa lộ ra API (chưa có endpoint) |
-| [P2-02](PLAN.md#p2-02) | Provision & sinh khóa thiết bị | `TODO` | P2-01, P0-05 | | D-05 đã chốt: CLI nội bộ trong `tools/`, không endpoint admin; D-08: pairing code 8 ký tự/15 phút |
-| [P2-03](PLAN.md#p2-03) | Payload QR & in nhãn | `TODO` | P2-02 | | D-08 |
+| [P2-02](PLAN.md#p2-02) | Provision & sinh khóa thiết bị | `DONE` | P2-01, P0-05 | `PairingCodeTests` 17/17 · `DeviceApiKeyTests` 13/13 · `DeviceOnboardingTests` 4/4 (chỉ lưu hash, đúng 3 ngăn, serial trùng không để lại dữ liệu dở, mã mới làm hết hạn mã cũ, hộp đã ghép/không tồn tại → null) · smoke CLI trên LocalDB tạm (provision, issue-code, serial trùng exit 1, usage exit 2) · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit 1af6891 | CLI `tools/SmartMedBox.Provisioning` (`provision <serial>`, `issue-code <deviceId>`) qua `DeviceOnboardingService`; khóa 32 byte in một lần, chỉ lưu HMAC (`Security:TokenPepper`); mã Crockford 8 ký tự TTL 15 phút, chuẩn hóa I/L→1, O→0 [ĐỀ XUẤT]; audit không chứa secret. Chưa có test tự động cho CLI. **D-29 mới**: TTL 15 phút vs nhãn in sẵn |
+| [P2-03](PLAN.md#p2-03) | Payload QR & in nhãn | `IN_PROGRESS` | P2-02 | `PairingCode.QrPayload` → `{"v":1,"code":...}` + định dạng nhãn `XXXX-XXXX` (trong `PairingCodeTests`) · commit 1af6891 | Còn: sinh ảnh QR (cần chọn thư viện), mẫu nhãn, quy trình in, test quét mẫu; phụ thuộc D-20, D-29 |
 | [P2-04](PLAN.md#p2-04) | API ghép hộp atomic, một lần | `TODO` | P2-01, P2-02, P1-02, P1-05 | | AC-08, rate limit pair |
 | [P2-05](PLAN.md#p2-05) | API trạng thái hộp của tôi | `TODO` | P2-04 | | |
-| [P2-06](PLAN.md#p2-06) | Xác thực thiết bị | `TODO` | P2-02 | | D-07 |
-| [P2-07](PLAN.md#p2-07) | Heartbeat Unpaired/Paired | `TODO` | P2-06 | | |
+| [P2-06](PLAN.md#p2-06) | Xác thực thiết bị | `DONE` | P2-02 | `DeviceAuthenticationTests` 4/4 (header hợp lệ; 7 ca thiếu/sai/không tồn tại cùng 401 `DEVICE_UNAUTHORIZED`; cookie người dùng không vào được endpoint thiết bị; header thiết bị không vào được endpoint người dùng) · `DeviceApiKeyTests` · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit 3a98f65 | Scheme `Device` riêng, so sánh constant-time, vẫn tính HMAC khi thiết bị không tồn tại; không log header. Chưa có test bắt log chứng minh header không bị ghi |
+| [P2-07](PLAN.md#p2-07) | Heartbeat Unpaired/Paired | `DONE` | P2-06 | `HeartbeatApiTests` 4/4 (Unpaired + cập nhật `LastSeenAt`; Paired kèm `scheduleVersion`; gọi lặp chỉ đổi `LastSeenAt`; sai khóa 401 không đụng `LastSeenAt`) · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit b5c20d2 | `POST /api/device/heartbeat` trả `pairingState`/`serverTimeUtc`/`scheduleVersion` (0 khi Unpaired)/`nextHeartbeatSeconds` = 60 (shortcut, gắn D-12/D-26). `firmwareVersion` chưa lưu (không có cột); `rtcTimeUtc` chưa dùng (D-26) |
 | [P2-08](PLAN.md#p2-08) | Entity CareRelationships/RelativeInvitations | `DONE` | P2-01, P1-01 | `RelativeInvitationTests` 3/3 (email chuẩn hóa trim/lowercase, chặn rỗng) · `SchemaConstraintTests` bổ sung: pending trùng sau chuẩn hóa bị chặn; revoked cho phép mời lại + giữ lịch sử; `ExpiresAt` NOT NULL; relationship revoke giữ lịch sử + tạo active mới · full suite 96/96 · build 0W/0E | Entities/migration có từ `InitialSchema`; bổ sung setter chuẩn hóa `InviteeEmail` trong entity. D-14 đã chốt sau task: hạn lời mời 7 ngày — áp `ExpiresAt` khi tạo invitation ở P2-09 |
-| [P2-09](PLAN.md#p2-09) | API lời mời người thân | `TODO` | P2-08, P1-06, P0-04 | | D-14: lời mời hết hạn 7 ngày, 10 lần/ngày; flow người chưa có tài khoản |
-| [P2-10](PLAN.md#p2-10) | API quan hệ & ngừng theo dõi | `TODO` | P2-09, P1-05 | | AC-07 |
+| [P2-09](PLAN.md#p2-09) | API lời mời người thân | `DONE` | P2-08, P1-06, P0-04 | `RelativeInvitationApiTests` 17/17 (owner tạo 201 + hash + email + audit; relative/người ngoài 403; ẩn danh 401; Pending trùng 409; đã là người thân 409; email của mình/sai 400; accept + dùng lại 409; sai email 403; hết hạn 410; token lạ/hỏng cùng 404; người chưa có tài khoản đăng ký→xác minh→accept; accept đồng thời đúng 1 thành công; create/accept 429) · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit 10ebde0 | `RelativeInvitationService`; token `SecureToken` + HMAC, hạn 7 ngày (D-14); accept một transaction (cập nhật có điều kiện) + audit. [ĐỀ XUẤT]: lời mời Pending quá hạn chuyển `Expired` khi mời lại; list hiển thị quá hạn là `Expired`; email chỉ chứa mã (chưa có link — D-30). **Mâu thuẫn tài liệu**: khóa rate limit accept §1.6 (IP) vs §6.4 (token + người gọi) — đang theo §1.6, cần chốt |
+| [P2-10](PLAN.md#p2-10) | API quan hệ & ngừng theo dõi | `DONE` | P2-09, P1-05 | `CareRelationshipApiTests` 6/6 (owner thấy đủ + email; relative chỉ thấy quan hệ của mình, không lộ email người khác; người ngoài/đã thu hồi 403; owner thu hồi giữ lịch sử + mất quyền ngay; relative tự ngừng theo dõi; người khác 403, không tồn tại 404) · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit 4e42976 | `CareRelationshipService`; Active→Revoked có điều kiện, không xóa vật lý. [ĐỀ XUẤT]: owner thấy cả quan hệ Revoked; DELETE lặp → 404 |
 
 ---
 
@@ -114,7 +116,7 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 | ID | Task | Trạng thái | Phụ thuộc | Bằng chứng / Test | Ghi chú |
 |---|---|---|---|---|---|
 | [P3-01](PLAN.md#p3-01) | Entity lịch & thuốc | `DONE` | P2-01 | `MedicationScheduleRulesTests` 9/9 (ít nhất 1 ngày, `EndDate >= StartDate`, DayOfWeek 1–7 không trùng, grace 1–120, timezone bắt buộc) · `SchemaConstraintTests` thêm 8 test (grace 0/121, `EndDate` trước `StartDate`, DayOfWeek 0/8, Quantity ≤ 0, xóa mềm giữ hàng) · migration `20261029081552_AddScheduleDateRangeCheck` · full suite 113/113 · build 0W/0E | Entities + composite PK có từ `InitialSchema`; bổ sung check `CK_MedicationSchedules_DateRange` + `MedicationScheduleRules` (Domain). D-10 đã chốt sau task: `TimeZoneId` IANA theo từng lịch, mặc định `Asia/Ho_Chi_Minh` — cần áp khi làm P3-02 (validation IANA). D-22 đã chốt, D-23 còn TBD |
-| [P3-02](PLAN.md#p3-02) | CRUD lịch & ScheduleVersion | `TODO` | P3-01, P1-05 | | AC-07, AC-10; D-22 đã chốt giữ nguyên dose; còn D-23 |
+| [P3-02](PLAN.md#p3-02) | CRUD lịch & ScheduleVersion | `IN_PROGRESS` | P3-01, P1-05 | `SchedulesApiTests` 20/20 (owner CRUD + version 1→4; relative GET 200 / ghi 403; người ngoài 403; POST không có hộp 409 `DEVICE_NOT_PAIRED`; timezone không IANA 400; slot 0/4/hộp khác 400 `COMPARTMENT_INVALID`; 11 ca `VALIDATION_ERROR`; xóa mềm; audit không chứa dữ liệu thuốc; PUT/DELETE không đổi `DoseInstances`/snapshot — AC-10/D-22) · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit 3fc26d3 | Code + test xong; **chặn DONE bởi D-23** (chưa có luật chồng lấn). `ScheduleVersion` tăng nguyên tử bằng `ExecuteUpdate` cùng transaction với audit. Chưa có `If-Match` [ĐỀ XUẤT]. **Lệch schema**: `MedicationSchedules` thiếu `DeletedAt`/`UpdatedAt`/`CreatedAt` so với AGENTS §3.3 / API_CONTRACT §5 — cần duyệt migration `AddScheduleTimestamps` |
 | [P3-03](PLAN.md#p3-03) | Sinh DoseInstances + snapshot | `TODO` | P3-01, P0-04 | | AC-10; D-22 đã chốt; còn D-11, D-23 |
 | [P3-04](PLAN.md#p3-04) | Đồng bộ lịch cho thiết bị | `TODO` | P3-01, P3-02, P2-07 | | timezone từng lịch (D-10 đã chốt), D-22 đã chốt |
 | [P3-05](PLAN.md#p3-05) | Máy trạng thái lần uống | `TODO` | P3-03 | | D-24 |
@@ -165,7 +167,7 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 | [P7-01](PLAN.md#p7-01) | Phủ audit thao tác quan trọng | `TODO` | P2-04, P2-09, P3-02, P5-02, P6-04 | | |
 | [P7-02](PLAN.md#p7-02) | Bộ test nghiệm thu AC-01…AC-12 | `TODO` | P1–P7-01, HW-02…HW-04, UI-01…UI-07 | QA baseline 2026-10-29: [TEST_PLAN.md](TEST_PLAN.md) 82 case · [TEST_REPORT.md](TEST_REPORT.md) 1 PASS / 0 FAIL / 8 BLOCKED / 73 NOT_RUN | Theo dõi tại §13; harness E2E chưa có (DEF-13) |
 | [P7-03](PLAN.md#p7-03) | Rà soát bảo mật & hardening | `TODO` | P1–P6 | | |
-| [P7-04](PLAN.md#p7-04) | Observability & health | `TODO` | P0-04 | | |
+| [P7-04](PLAN.md#p7-04) | Observability & health | `DONE` | P0-04 | `HealthCheckTests` 2/2 (live 200; ready 503 khi mất DB, body chỉ `Unhealthy`) · `HealthCheckDatabaseTests` 1/1 · `TraceIdLogScopeTests` 1/1 (scope `TraceId` = `traceId` của ProblemDetails; không log query/header) · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit 7026a27 | `/health/live`, `/health/ready` (DB + storage), health checks có sẵn, không thêm package; `appsettings.Production.json` chặt hơn. `/health/ready` công khai, không rate limit — chặn ở proxy khi triển khai thật. D-19 vẫn TBD |
 | [P7-05](PLAN.md#p7-05) | Bộ demo & tài liệu bàn giao | `TODO` | P7-02 | | |
 | [P7-06](PLAN.md#p7-06) | Runbook vận hành & chính sách dữ liệu | `TODO` | P6-05 | | D-17 |
 
@@ -175,7 +177,7 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 
 | ID | Task | Trạng thái | Phụ thuộc | Bằng chứng / Test | Ghi chú |
 |---|---|---|---|---|---|
-| [UI-01](PLAN.md#ui-01) | Trang xác thực tài khoản | `TODO` | P1-02…P1-04, P0-01 | | AC-12, D-01 = Razor trong Api |
+| [UI-01](PLAN.md#ui-01) | Trang xác thực tài khoản | `DONE` | P1-02…P1-04, P0-01 | `AccountPagesTests` 20/20 (6 trang GET 200 + antiforgery; 7 form thiếu CSRF → 400; chuỗi AC-12 qua form; thông báo trung tính; lỗi `PasswordPolicy`; login 429) · **trình duyệt thật 2026-11-09** (Kestrel HTTPS + LocalDB): đăng ký (lỗi mật khẩu yếu hiển thị) → xác minh bằng mã trong email sink → đăng nhập → trang tài khoản → đăng xuất → `/account` chuyển về login; desktop + mobile 375px không cuộn ngang · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit 78ad493 | Razor `/account/*` (D-01); `LoginService` + `SessionCookie` dùng chung với API. Quên/đặt lại mật khẩu mới kiểm bằng test HTTP, chưa bấm thử trên trình duyệt. Email chỉ chứa mã, không link (D-30) |
 | [UI-02](PLAN.md#ui-02) | Ghép hộp & trạng thái thiết bị | `TODO` | P2-04, P2-05, P2-07, UI-01 | | |
 | [UI-03](PLAN.md#ui-03) | Quản lý lịch uống | `TODO` | P3-02, UI-01 | | |
 | [UI-04](PLAN.md#ui-04) | Dashboard & lịch sử | `TODO` | P3-06, P4-04, UI-02 | | AC-06 |
@@ -280,6 +282,15 @@ Kết luận: **MVP NOT ACCEPTED**. Nguyên nhân gốc: P0-02…P7-06 chưa tri
 | 2026-10-29 | P1-04 | `TODO` → `DONE` | `PasswordResetApiTests` 10/10 (gồm chuỗi AC-12 API); `InMemoryUserSessionStoreTests` 7/7 (`RevokeAllForUser`); full suite 160/160 (84 unit + 76 integration); build 0W/0E; không cần migration mới; [README.md](README.md) bổ sung endpoint quên/đặt lại | Agent |
 | 2026-11-09 | P1-05 | `TODO` → `DONE` | `DeviceAccessPolicyTests` 6/6; `DeviceAccessTests` 5/5; full suite 171/171 (90 unit + 81 integration); build 0W/0E; không cần migration mới | Agent |
 | 2026-11-09 | P1-06 | `TODO` → `DONE` | `RateLimitingTests` 5/5; full suite 176/176 (90 unit + 86 integration); build 0W/0E; D-28 ghi nhận tại PLAN §3 | Agent |
+| 2026-11-09 | P7-04 | `TODO` → `DONE` | commit 7026a27; full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P3-02 | `TODO` → `IN_PROGRESS` | commit 3fc26d3; full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | UI-01 | `TODO` → `DONE` | commit 78ad493; full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P2-09 | `TODO` → `DONE` | commit 10ebde0; full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P2-10 | `TODO` → `DONE` | commit 4e42976; full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P2-02 | `TODO` → `DONE` | commit 1af6891; full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P2-03 | `TODO` → `IN_PROGRESS` | commit 1af6891; full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P2-06 | `TODO` → `DONE` | commit 3a98f65; full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-09 | P2-07 | `TODO` → `DONE` | commit b5c20d2; full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E | Subagent + Agent review |
 
 ---
 
@@ -389,10 +400,10 @@ Kết luận: **MVP NOT ACCEPTED**. Nguyên nhân gốc: P0-02…P7-06 chưa tri
 
 ### P2-09 · Lời mời người thân
 
-- [ ] P2-09a — entity/validation + chặn trùng Pending/relationship
-- [ ] P2-09b — tạo/revoke/list invitation + audit
-- [ ] P2-09c — email token một lần + flow người chưa có tài khoản
-- [ ] P2-09d — accept transaction + sai email/hết hạn/dùng lại + rate limit
+- [x] P2-09a — entity/validation + chặn trùng Pending/relationship
+- [x] P2-09b — tạo/revoke/list invitation + audit
+- [x] P2-09c — email token một lần + flow người chưa có tài khoản
+- [x] P2-09d — accept transaction + sai email/hết hạn/dùng lại + rate limit
 
 ### P3-01 · Entity lịch & thuốc
 

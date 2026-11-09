@@ -9,10 +9,10 @@ public static class AuditActions
     public const string ScheduleCreated = "ScheduleCreated";
     public const string ScheduleUpdated = "ScheduleUpdated";
     public const string ScheduleDeleted = "ScheduleDeleted";
-    public const string InvitationCreated = "relative.invitation.created";
-    public const string InvitationRevoked = "relative.invitation.revoked";
-    public const string InvitationAccepted = "relative.invitation.accepted";
-    public const string RelationshipRevoked = "relative.relationship.revoked";
+    public const string InvitationCreated = "InvitationCreated";
+    public const string InvitationRevoked = "InvitationRevoked";
+    public const string InvitationAccepted = "InvitationAccepted";
+    public const string RelationshipRevoked = "RelationshipRevoked";
     public const string DeviceProvisioned = "DeviceProvisioned";
     public const string PairingCodeIssued = "PairingCodeIssued";
 }

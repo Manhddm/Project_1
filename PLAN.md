@@ -84,6 +84,8 @@ HTML đặt badge **"MỐC MVP"** tại mốc 4 nhưng danh sách 12 tiêu chí 
 | **D-26** | Chính sách đồng bộ RTC/clock skew: ngưỡng lệch chấp nhận, tần suất sync, xử lý event cũ/tương lai | **[TBD]** — HTML yêu cầu RTC nhưng không nêu dung sai | HW-02, HW-04, P4-02 |
 | **D-27** | Lưu trữ session đăng nhập phía server (in-memory hay durable) và TTL session | **[TBD]** — P1-03 dùng in-memory + TTL 8 giờ theo [ĐỀ XUẤT]; mất session khi restart, không chia sẻ giữa nhiều instance; phải chốt trước khi vận hành nhiều instance | P1-03, P7-03 |
 | **D-28** | Ngưỡng rate limit cho `register`, `forgot-password`, `resend-verification`, `verify-email`, `reset-password` | **[TBD]** — API_CONTRACT §1.6 yêu cầu có rate limit [ĐỀ XUẤT] nhưng chưa nêu ngưỡng; P1-06 chỉ áp `login` + chuẩn bị policy pair/invitation/accept | P1-06, P7-03 |
+| **D-29** | Quy trình phát pairing code: D-08 đặt TTL 15 phút nhưng P2-03/HW-05 nói nhãn QR in sẵn — mã in ở nhà máy sẽ hết hạn trước khi khách quét. Ai phát mã, lúc nào | **[TBD]** — P2-02 có lệnh CLI `issue-code` để phát mã mới ngay trước bàn giao | P2-02, P2-03, HW-05, UI-02 |
+| **D-30** | Email (xác minh, đặt lại mật khẩu, lời mời) có chứa link tới trang Web không; nếu có cần cấu hình base URL công khai | **[TBD]** — hiện email chỉ chứa mã; trang nhận mã nhập tay, hỗ trợ `?token=` | P1-02, P1-04, P2-09, UI-01, UI-05 |
 
 ---
 

@@ -127,3 +127,14 @@ dotnet ef migrations add <Name> --project src/SmartMedBox.Infrastructure --start
 ## Bảo mật
 
 Không commit secret, chuỗi kết nối thật hay khóa thiết bị. Cấu hình nhạy cảm đặt trong user-secrets hoặc biến môi trường.
+
+## Provision thiết bị (P2-02, D-05)
+
+Đặt `ConnectionStrings__Default` và `Security__TokenPepper` giống API, rồi chạy:
+
+```bash
+dotnet run --project tools/SmartMedBox.Provisioning -- provision <serial>
+dotnet run --project tools/SmartMedBox.Provisioning -- issue-code <deviceId>
+```
+
+`DeviceApiKey` chỉ in **một lần**; server chỉ lưu HMAC. Pairing code hết hạn sau 15 phút (D-08); phát mã mới bằng `issue-code` (quy trình phát mã: D-29).
