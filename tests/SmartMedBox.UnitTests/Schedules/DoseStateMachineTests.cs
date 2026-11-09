@@ -88,7 +88,7 @@ public sealed class DoseStateMachineTests
     {
         var dose = NewDose();
         var policy = new RecordingConnectivityPolicy(true);
-        var machine = new DoseStateMachine(new FakeClock(ScheduledAt.AddMinutes(30)), policy);
+        var machine = new DoseStateMachine(new FakeClock(ScheduledAt.AddMinutes(10)), policy);
 
         var result = machine.EvaluateDeadline(dose, ScheduledAt.AddMinutes(29));
 

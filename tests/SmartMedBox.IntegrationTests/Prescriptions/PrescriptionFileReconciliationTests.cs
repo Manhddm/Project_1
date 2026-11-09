@@ -78,10 +78,10 @@ public sealed class PrescriptionFileReconciliationTests(SqlServerDatabaseFixture
 
             Assert.Equal(3, report.MetadataCount);
             Assert.Equal(3, report.StorageFileCount);
-            Assert.Equal([missingKey], report.MissingFiles);
-            Assert.Equal([orphanKey, invalidKey].Order(StringComparer.Ordinal), report.OrphanFiles);
-            Assert.Equal([invalidKey], report.InvalidStorageFiles);
-            Assert.Equal([referencedKey], report.DuplicateMetadataKeys);
+            Assert.Equal(new[] { missingKey }, report.MissingFiles);
+            Assert.Equal(new[] { orphanKey, invalidKey }.Order(StringComparer.Ordinal), report.OrphanFiles);
+            Assert.Equal(new[] { invalidKey }, report.InvalidStorageFiles);
+            Assert.Equal(new[] { referencedKey }, report.DuplicateMetadataKeys);
             Assert.False(report.IsClean);
         }
 

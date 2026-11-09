@@ -1,0 +1,46 @@
+@{
+    ViewData["Title"] = "Ảnh đơn thuốc";
+}
+
+<section class="panel prescriptions-page" data-prescriptions-page>
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">Hộp của bạn</p>
+            <h1>Ảnh đơn thuốc</h1>
+            <p>Chỉ chủ hộp được tải lên, xem và xóa ảnh. Ảnh không được chia sẻ cho người thân.</p>
+        </div>
+    </div>
+
+    <form id="prescription-upload-form" class="upload-card" action="/api/prescriptions/images" method="post" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <div class="field">
+            <label for="prescription-file">Chọn ảnh đơn thuốc</label>
+            <input id="prescription-file" name="file" type="file" accept="image/jpeg,image/png,image/webp" required />
+            <small class="hint">JPEG, PNG hoặc WebP · tối đa 5 MB</small>
+        </div>
+        <button type="submit">Tải ảnh lên</button>
+    </form>
+
+    <p id="prescription-status" class="notice" role="status" aria-live="polite" hidden></p>
+    <p id="prescription-error" class="form-errors" role="alert" aria-live="assertive" hidden></p>
+
+    <div class="prescription-list-heading">
+        <h2>Ảnh đã tải lên</h2>
+        <span id="prescription-count" class="hint"></span>
+    </div>
+    <div id="prescription-list" class="prescription-grid" aria-live="polite">
+        <p class="hint">Đang tải danh sách ảnh…</p>
+    </div>
+
+    <dialog id="prescription-viewer" class="image-viewer">
+        <div class="image-viewer-header">
+            <strong id="prescription-viewer-name">Ảnh đơn thuốc</strong>
+            <button type="button" class="secondary-button" data-close-viewer>Đóng</button>
+        </div>
+        <img id="prescription-viewer-image" alt="Ảnh đơn thuốc" />
+    </dialog>
+</section>
+
+@section Scripts {
+    <script src="~/js/prescriptions.js" asp-append-version="true"></script>
+}
