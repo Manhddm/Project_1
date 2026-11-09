@@ -6,6 +6,9 @@ namespace SmartMedBox.Infrastructure.Auditing;
 /// <summary>Tên hành động audit (AGENTS §8). Thêm hằng số mới ở đây khi có thao tác mới.</summary>
 public static class AuditActions
 {
+    public const string ScheduleCreated = "ScheduleCreated";
+    public const string ScheduleUpdated = "ScheduleUpdated";
+    public const string ScheduleDeleted = "ScheduleDeleted";
 }
 
 public static class AuditLogWriter

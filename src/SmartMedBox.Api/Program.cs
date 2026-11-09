@@ -14,6 +14,7 @@ using SmartMedBox.Infrastructure.Data;
 using SmartMedBox.Infrastructure.Devices;
 using SmartMedBox.Infrastructure.Email;
 using SmartMedBox.Infrastructure.Identity;
+using SmartMedBox.Infrastructure.Schedules;
 using SmartMedBox.Infrastructure.Security;
 using SmartMedBox.Infrastructure.Storage;
 using SystemClock = SmartMedBox.Infrastructure.Time.SystemClock;
@@ -101,6 +102,7 @@ builder.Services.AddScoped<DeviceProvisioningService>();
 builder.Services.AddScoped<DeviceAccessService>();
 builder.Services.AddScoped<RegistrationService>();
 builder.Services.AddScoped<PasswordResetService>();
+builder.Services.AddScoped<ScheduleService>();
 
 builder.Services.Configure<EmailSinkOptions>(options =>
     options.DirectoryPath = ResolveContentPath(
