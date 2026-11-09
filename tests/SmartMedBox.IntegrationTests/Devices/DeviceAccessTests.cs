@@ -1,12 +1,9 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
 using SmartMedBox.Domain.Devices;
 using SmartMedBox.Domain.Entities;
 using SmartMedBox.Domain.Enums;
 using SmartMedBox.Infrastructure.Devices;
-using SmartMedBox.Infrastructure.Identity;
 using SmartMedBox.IntegrationTests.Schema;
 using SmartMedBox.IntegrationTests.TestSupport;
 
@@ -14,8 +11,6 @@ namespace SmartMedBox.IntegrationTests.Devices;
 
 public sealed class DeviceAccessTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
-    private const string Password = "P@ssw0rd!2026";
-
     [Fact]
     public async Task GetRole_OwnerActiveRelativeRevokedStranger_ResolvesPerDevice()
     {
@@ -51,13 +46,13 @@ public sealed class DeviceAccessTests(SqlServerDatabaseFixture fixture) : IClass
         using var factory = new TestApplicationFactory(fixture.ConnectionString);
         var url = $"/api/test-probe/devices/{setup.DeviceId}";
 
-        using (var owner = await LoginAsync(factory, setup.Owner))
+        using (var owner = await TestUsers.LoginAsync(factory, setup.Owner))
         {
             Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync(url)).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await owner.PutAsync(url, null)).StatusCode);
         }
 
-        using (var relative = await LoginAsync(factory, setup.Relative))
+        using (var relative = await TestUsers.LoginAsync(factory, setup.Relative))
         {
             Assert.Equal(HttpStatusCode.OK, (await relative.GetAsync(url)).StatusCode);
             await AssertForbiddenAsync(await relative.PutAsync(url, null));
@@ -65,12 +60,12 @@ public sealed class DeviceAccessTests(SqlServerDatabaseFixture fixture) : IClass
 
         foreach (var outsider in new[] { setup.RevokedRelative, setup.Stranger })
         {
-            using var client = await LoginAsync(factory, outsider);
+            using var client = await TestUsers.LoginAsync(factory, outsider);
             await AssertForbiddenAsync(await client.GetAsync(url));
             await AssertForbiddenAsync(await client.PutAsync(url, null));
         }
 
-        using var anonymous = CreateClient(factory);
+        using var anonymous = TestUsers.CreateClient(factory);
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync(url)).StatusCode);
     }
 
@@ -79,7 +74,7 @@ public sealed class DeviceAccessTests(SqlServerDatabaseFixture fixture) : IClass
     {
         var setup = await SeedAsync();
         using var factory = new TestApplicationFactory(fixture.ConnectionString);
-        using var stranger = await LoginAsync(factory, setup.Stranger);
+        using var stranger = await TestUsers.LoginAsync(factory, setup.Stranger);
         var url = $"/api/test-probe/devices/{setup.DeviceId}?userId={setup.Owner.Id}";
 
         await AssertForbiddenAsync(await stranger.GetAsync(url));
@@ -91,7 +86,7 @@ public sealed class DeviceAccessTests(SqlServerDatabaseFixture fixture) : IClass
     {
         var setup = await SeedAsync();
         using var factory = new TestApplicationFactory(fixture.ConnectionString);
-        using var stranger = await LoginAsync(factory, setup.Stranger);
+        using var stranger = await TestUsers.LoginAsync(factory, setup.Stranger);
 
         using var foreign = await stranger.GetAsync($"/api/test-probe/devices/{setup.DeviceId}");
         using var missing = await stranger.GetAsync($"/api/test-probe/devices/{Guid.NewGuid()}");
@@ -107,36 +102,12 @@ public sealed class DeviceAccessTests(SqlServerDatabaseFixture fixture) : IClass
         Assert.Equal("FORBIDDEN", document.RootElement.GetProperty("code").GetString());
     }
 
-    private static HttpClient CreateClient(TestApplicationFactory factory) =>
-        factory.CreateClient(new WebApplicationFactoryClientOptions
-        {
-            BaseAddress = new Uri("https://localhost"),
-            HandleCookies = true,
-        });
-
-    private static async Task<HttpClient> LoginAsync(TestApplicationFactory factory, ApplicationUser user)
-    {
-        var client = CreateClient(factory);
-        using var csrf = await client.GetAsync("/api/test-probe/csrf");
-        csrf.EnsureSuccessStatusCode();
-        using var csrfBody = JsonDocument.Parse(await csrf.Content.ReadAsStringAsync());
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
-        {
-            Content = JsonContent.Create(new { email = user.Email, password = Password }),
-        };
-        request.Headers.Add("X-CSRF-TOKEN", csrfBody.RootElement.GetProperty("token").GetString());
-        using var login = await client.SendAsync(request);
-        login.EnsureSuccessStatusCode();
-        return client;
-    }
-
     private async Task<Setup> SeedAsync()
     {
-        var owner = await SeedUserAsync();
-        var relative = await SeedUserAsync();
-        var revokedRelative = await SeedUserAsync();
-        var stranger = await SeedUserAsync();
+        var owner = await TestUsers.SeedAsync(fixture);
+        var relative = await TestUsers.SeedAsync(fixture);
+        var revokedRelative = await TestUsers.SeedAsync(fixture);
+        var stranger = await TestUsers.SeedAsync(fixture);
         var deviceId = await SeedDeviceAsync(owner.Id);
 
         await using var db = fixture.CreateContext();
@@ -177,22 +148,6 @@ public sealed class DeviceAccessTests(SqlServerDatabaseFixture fixture) : IClass
         db.Devices.Add(device);
         await db.SaveChangesAsync();
         return device.Id;
-    }
-
-    private async Task<ApplicationUser> SeedUserAsync()
-    {
-        await using var db = fixture.CreateContext();
-        var user = new ApplicationUser
-        {
-            Id = Guid.NewGuid(),
-            Email = $"user-{Guid.NewGuid():N}@example.com",
-            PasswordHash = new PasswordHasherService().Hash(Password),
-            EmailVerified = true,
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
-        db.ApplicationUsers.Add(user);
-        await db.SaveChangesAsync();
-        return user;
     }
 
     private sealed record Setup(

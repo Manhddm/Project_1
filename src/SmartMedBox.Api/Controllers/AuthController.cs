@@ -2,9 +2,11 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using SmartMedBox.Api.Contracts;
 using SmartMedBox.Api.Errors;
+using SmartMedBox.Api.Security;
 using SmartMedBox.Domain.Abstractions;
 using SmartMedBox.Domain.Accounts;
 using SmartMedBox.Infrastructure.Data;
@@ -142,6 +144,7 @@ public sealed class AuthController(
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimitPolicies.Login)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         string email;

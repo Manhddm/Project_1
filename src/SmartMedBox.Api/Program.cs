@@ -77,6 +77,7 @@ builder.Services.AddRouting(options =>
     // Route MVC mặc định không được nuốt path /api, nếu không routing trả 404 thay vì 405 cho sai method.
     options.ConstraintMap["notapi"] = typeof(NotApiControllerConstraint);
 });
+builder.Services.AddApiRateLimiting(builder.Configuration);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddHttpLogging(options =>
@@ -130,6 +131,7 @@ app.UseStatusCodePages(ApiStatusCodePages.HandleAsync);
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllerRoute(
