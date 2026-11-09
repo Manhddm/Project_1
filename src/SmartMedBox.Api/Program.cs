@@ -74,7 +74,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
                 await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             }
         };
-    });
+    })
+    .AddScheme<AuthenticationSchemeOptions, DeviceAuthenticationHandler>(DeviceAuthenticationHandler.SchemeName, null);
 builder.Services.AddRouting(options =>
 {
     // Route MVC mặc định không được nuốt path /api, nếu không routing trả 404 thay vì 405 cho sai method.
