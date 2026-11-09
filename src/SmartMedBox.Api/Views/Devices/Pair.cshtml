@@ -1,0 +1,20 @@
+@model SmartMedBox.Api.Controllers.PairDeviceForm
+@{
+    ViewData["Title"] = "Ghép hộp";
+}
+
+<section class="panel">
+    <h1>Ghép hộp thuốc</h1>
+    <p>Nhập mã ghép 8 ký tự trên nhãn của hộp. Có thể nhập dấu gạch nối.</p>
+    <p class="hint">Chỉ hỗ trợ nhập mã thủ công; quét QR trên Web vẫn là TBD-D20.</p>
+    <form asp-action="Pair" method="post" novalidate>
+        <div asp-validation-summary="ModelOnly" class="form-errors" role="alert"></div>
+        <div class="field">
+            <label asp-for="Code">Mã ghép</label>
+            <input asp-for="Code" type="text" autocomplete="one-time-code" maxlength="9" required spellcheck="false" />
+            <span asp-validation-for="Code" class="field-error"></span>
+        </div>
+        <button type="submit">Ghép hộp</button>
+    </form>
+    <p><a asp-action="Index">Xem hộp của tôi</a></p>
+</section>

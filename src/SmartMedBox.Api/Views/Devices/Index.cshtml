@@ -1,0 +1,41 @@
+@model SmartMedBox.Api.Controllers.DevicePageViewModel
+@{
+    ViewData["Title"] = "Hộp của tôi";
+}
+
+<section class="panel">
+    <h1>Hộp của tôi</h1>
+    @if (Model.Device is null)
+    {
+        <p>Bạn chưa có hộp được ghép.</p>
+        <p><a asp-controller="DevicePages" asp-action="Pair">Ghép hộp bằng mã</a></p>
+    }
+    else
+    {
+        <dl class="details">
+            <div>
+                <dt>Số serial</dt>
+                <dd>@Model.Device.SerialNumber</dd>
+            </div>
+            <div>
+                <dt>Lần cuối thiết bị kết nối</dt>
+                <dd>@(Model.Device.LastSeenAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") ?? "Chưa có dữ liệu")</dd>
+            </div>
+            <div>
+                <dt>Phiên bản lịch</dt>
+                <dd>@Model.Device.ScheduleVersion</dd>
+            </div>
+        </dl>
+
+        <h2>Các ngăn</h2>
+        <ul class="compartment-list">
+            @foreach (var compartment in Model.Device.Compartments.OrderBy(x => x.SlotNumber))
+            {
+                <li>
+                    <strong>Ngăn @compartment.SlotNumber — @compartment.Name</strong>
+                    <span>@(compartment.IsEnabled ? "Đang sử dụng" : "Đã tắt")</span>
+                </li>
+            }
+        </ul>
+    }
+</section>
