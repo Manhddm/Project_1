@@ -1,0 +1,91 @@
+@{
+    ViewData["Title"] = "Lịch uống thuốc";
+}
+
+<section class="panel schedule-page" data-schedule-page>
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">Lịch nhắc tại chỗ</p>
+            <h1>Lịch uống thuốc</h1>
+            <p>Thiết lập thời gian, ngăn và thuốc. Hệ thống chỉ xác nhận khi đúng ngăn được mở trong cửa sổ cho phép.</p>
+        </div>
+    </div>
+
+    @Html.AntiForgeryToken()
+    <p id="schedule-error" class="form-errors" role="alert" aria-live="assertive" hidden></p>
+    <p id="schedule-status" class="notice" role="status" aria-live="polite" hidden></p>
+
+    <form id="schedule-form" class="upload-card">
+        <input id="schedule-id" type="hidden" />
+        <div class="field">
+            <label for="compartment-slot">Ngăn</label>
+            <select id="compartment-slot" required>
+                <option value="1">Ngăn 1 — Sáng</option>
+                <option value="2">Ngăn 2 — Trưa</option>
+                <option value="3">Ngăn 3 — Tối</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="time-of-day">Giờ nhắc</label>
+            <input id="time-of-day" type="time" required value="08:00" />
+        </div>
+        <fieldset class="field">
+            <legend>Ngày trong tuần</legend>
+            <label><input type="checkbox" name="day" value="1" checked /> Thứ 2</label>
+            <label><input type="checkbox" name="day" value="2" checked /> Thứ 3</label>
+            <label><input type="checkbox" name="day" value="3" checked /> Thứ 4</label>
+            <label><input type="checkbox" name="day" value="4" checked /> Thứ 5</label>
+            <label><input type="checkbox" name="day" value="5" checked /> Thứ 6</label>
+            <label><input type="checkbox" name="day" value="6" checked /> Thứ 7</label>
+            <label><input type="checkbox" name="day" value="7" checked /> Chủ nhật</label>
+        </fieldset>
+        <div class="field">
+            <label for="start-date">Từ ngày</label>
+            <input id="start-date" type="date" required />
+        </div>
+        <div class="field">
+            <label for="end-date">Đến ngày <span class="hint">(không bắt buộc)</span></label>
+            <input id="end-date" type="date" />
+        </div>
+        <div class="field">
+            <label for="grace-period">Thời gian chờ (phút)</label>
+            <input id="grace-period" type="number" min="1" max="120" value="15" required />
+        </div>
+        <div class="field">
+            <label for="time-zone">Múi giờ IANA</label>
+            <input id="time-zone" type="text" value="Asia/Ho_Chi_Minh" maxlength="100" required />
+        </div>
+        <div class="field">
+            <label for="medicine-name">Tên thuốc</label>
+            <input id="medicine-name" type="text" maxlength="200" required />
+        </div>
+        <div class="field">
+            <label for="quantity">Số lượng</label>
+            <input id="quantity" type="number" min="0.01" step="0.01" required />
+        </div>
+        <div class="field">
+            <label for="unit">Đơn vị</label>
+            <input id="unit" type="text" maxlength="50" value="viên" required />
+        </div>
+        <div class="field">
+            <label for="instructions">Hướng dẫn <span class="hint">(không bắt buộc)</span></label>
+            <input id="instructions" type="text" maxlength="500" />
+        </div>
+        <div class="prescription-actions">
+            <button id="schedule-submit" type="submit">Thêm lịch</button>
+            <button id="schedule-cancel" class="secondary-button" type="button" hidden>Hủy sửa</button>
+        </div>
+    </form>
+
+    <div class="prescription-list-heading">
+        <h2>Lịch hiện tại</h2>
+        <span id="schedule-count" class="hint"></span>
+    </div>
+    <div id="schedule-list" class="prescription-grid" aria-live="polite">
+        <p class="hint">Đang tải lịch…</p>
+    </div>
+</section>
+
+@section Scripts {
+    <script src="~/js/schedules.js" asp-append-version="true"></script>
+}
