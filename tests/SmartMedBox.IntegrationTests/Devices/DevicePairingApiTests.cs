@@ -22,7 +22,9 @@ namespace SmartMedBox.IntegrationTests.Devices;
 public sealed class DevicePairingApiTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
     private const string PairUrl = "/api/devices/pair";
-    private static readonly DateTimeOffset Now = new(2026, 11, 9, 9, 30, 0, TimeSpan.Zero);
+    // Cookie phiên hết hạn theo IClock nhưng middleware cookie so với giờ thật: ngày cố định sẽ làm mọi request 401.
+    private static readonly DateTimeOffset Now =
+        new(DateTimeOffset.UtcNow.Ticks / TimeSpan.TicksPerSecond * TimeSpan.TicksPerSecond, TimeSpan.Zero);
 
     private readonly FakeClock _clock = new(Now);
 
@@ -201,6 +203,23 @@ public sealed class DevicePairingApiTests(SqlServerDatabaseFixture fixture) : IC
         Assert.Equal(ownerId, (await db.DevicePairingCodes.SingleAsync(x => x.DeviceId == deviceKey)).UsedByUserId);
         Assert.Equal(1, await db.AuditLogs.CountAsync(x => x.DeviceId == deviceKey && x.Action == AuditActions.DevicePaired));
         clients.ForEach(c => c.Dispose());
+    }
+
+    [Fact]
+    public async Task Pair_SameUserConcurrentSameCode_OneSucceedsOthersGetCodeUsed()
+    {
+        using var factory = CreateFactory();
+        var device = await ProvisionAsync(factory);
+        using var client = await LoginWithCsrfAsync(factory, await TestUsers.SeedAsync(fixture));
+
+        // Bấm "Ghép" nhiều lần liên tiếp: request thua phải nhận PAIRING_CODE_USED, không phải USER_ALREADY_OWNS_DEVICE.
+        var responses = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => PairAsync(client, device.PairingCode.Code)));
+
+        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.OK);
+        foreach (var rejected in responses.Where(r => r.StatusCode != HttpStatusCode.OK))
+        {
+            await AssertCodeAsync(rejected, HttpStatusCode.Conflict, "PAIRING_CODE_USED");
+        }
     }
 
     [Fact]

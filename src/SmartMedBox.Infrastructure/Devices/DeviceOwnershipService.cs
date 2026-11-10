@@ -72,14 +72,18 @@ public sealed class DeviceOwnershipService(AppDbContext db, ITokenHasher hasher,
             return new PairingResult(PairingOutcome.CodeExpired);
         }
 
-        if (await db.Devices.AnyAsync(x => x.OwnerUserId == userId, cancellationToken))
+        PairingOutcome? rejection =
+            await db.Devices.AnyAsync(x => x.OwnerUserId == userId, cancellationToken)
+                ? PairingOutcome.UserAlreadyOwnsDevice
+            : await db.Devices.AnyAsync(x => x.Id == pairingCode.DeviceId && x.OwnerUserId != null, cancellationToken)
+                ? PairingOutcome.DeviceAlreadyPaired
+            : null;
+        if (rejection is { } outcome)
         {
-            return new PairingResult(PairingOutcome.UserAlreadyOwnsDevice);
-        }
-
-        if (await db.Devices.AnyAsync(x => x.Id == pairingCode.DeviceId && x.OwnerUserId != null, cancellationToken))
-        {
-            return new PairingResult(PairingOutcome.DeviceAlreadyPaired);
+            // Request đồng thời (kể cả của chính người này) vừa dùng mã sau lần đọc ở trên: vẫn phải trả PAIRING_CODE_USED.
+            var usedMeanwhile = await db.DevicePairingCodes
+                .AnyAsync(x => x.Id == pairingCode.Id && x.UsedAt != null, cancellationToken);
+            return new PairingResult(usedMeanwhile ? PairingOutcome.CodeUsed : outcome);
         }
 
         await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))

@@ -91,8 +91,8 @@ public sealed partial class AccountPagesTests(SqlServerDatabaseFixture fixture) 
         Assert.Contains("Mã không đúng hoặc đã được sử dụng.", reusedVerifyHtml, StringComparison.Ordinal);
 
         var (loggedIn, landingHtml) = await SubmitAsync(client, "/account/login", ("Email", email), ("Password", Password));
-        Assert.Equal("/account", loggedIn.RequestMessage!.RequestUri!.AbsolutePath);
-        Assert.Contains(email, landingHtml, StringComparison.Ordinal);
+        Assert.Equal("/dashboard", loggedIn.RequestMessage!.RequestUri!.AbsolutePath);
+        Assert.Contains("Tổng quan", landingHtml, StringComparison.Ordinal);
 
         var (_, forgotHtml) = await SubmitAsync(client, "/account/forgot-password", ("Email", email));
         Assert.Contains("Nếu email tồn tại, hướng dẫn đặt lại đã được gửi.", forgotHtml, StringComparison.Ordinal);
@@ -116,8 +116,8 @@ public sealed partial class AccountPagesTests(SqlServerDatabaseFixture fixture) 
         Assert.Contains("Email hoặc mật khẩu không đúng.", oldPasswordHtml, StringComparison.Ordinal);
 
         var (newLogin, newLandingHtml) = await SubmitAsync(client, "/account/login", ("Email", email), ("Password", NewPassword));
-        Assert.Equal("/account", newLogin.RequestMessage!.RequestUri!.AbsolutePath);
-        Assert.Contains(email, newLandingHtml, StringComparison.Ordinal);
+        Assert.Equal("/dashboard", newLogin.RequestMessage!.RequestUri!.AbsolutePath);
+        Assert.Contains("Tổng quan", newLandingHtml, StringComparison.Ordinal);
 
         var (loggedOut, _) = await SubmitAsync(client, "/account", "/account/logout");
         Assert.Equal("/account/login", loggedOut.RequestMessage!.RequestUri!.AbsolutePath);

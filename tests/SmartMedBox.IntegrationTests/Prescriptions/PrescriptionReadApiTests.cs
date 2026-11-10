@@ -21,7 +21,7 @@ public sealed class PrescriptionReadApiTests(SqlServerDatabaseFixture fixture) :
         var setup = await PrescriptionTestSupport.SeedAsync(fixture);
         using var factory = new TestApplicationFactory(fixture.ConnectionString);
         using var owner = await LoginWithCsrfAsync(factory, setup.Owner);
-        using var upload = await owner.PostAsync(Url, Multipart(Jpeg(), "prescription.jpg"));
+        using var upload = await owner.PostAsync(Url, Multipart(PrescriptionTestSupport.Jpeg(), "prescription.jpg"));
         upload.EnsureSuccessStatusCode();
 
         using var response = await owner.GetAsync(Url);
@@ -33,8 +33,10 @@ public sealed class PrescriptionReadApiTests(SqlServerDatabaseFixture fixture) :
         Assert.Equal("image/jpeg", item.GetProperty("contentType").GetString());
         Assert.DoesNotContain("storageKey", body, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("App_Data", body, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain(Path.DirectorySeparatorChar.ToString(), body, StringComparison.Ordinal);
-        Assert.DoesNotContain(Path.AltDirectorySeparatorChar.ToString(), body, StringComparison.Ordinal);
+        // Không dò dấu "/" vì "image/jpeg" luôn chứa nó: so với storage key thật.
+        await using var db = fixture.CreateContext();
+        var storageKey = (await db.PrescriptionImages.AsNoTracking().SingleAsync(x => x.Id == item.GetProperty("id").GetGuid())).StorageKey;
+        Assert.DoesNotContain(storageKey, body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -43,7 +45,7 @@ public sealed class PrescriptionReadApiTests(SqlServerDatabaseFixture fixture) :
         var setup = await PrescriptionTestSupport.SeedAsync(fixture);
         using var factory = new TestApplicationFactory(fixture.ConnectionString);
         using var owner = await LoginWithCsrfAsync(factory, setup.Owner);
-        using var upload = await owner.PostAsync(Url, Multipart(Jpeg(), "prescription.jpg"));
+        using var upload = await owner.PostAsync(Url, Multipart(PrescriptionTestSupport.Jpeg(), "prescription.jpg"));
         upload.EnsureSuccessStatusCode();
         using var uploadBody = JsonDocument.Parse(await upload.Content.ReadAsStringAsync());
         var imageId = uploadBody.RootElement.GetProperty("id").GetGuid();
@@ -60,7 +62,7 @@ public sealed class PrescriptionReadApiTests(SqlServerDatabaseFixture fixture) :
         using var response = await owner.GetAsync($"{Url}/{imageId}/content");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("image/jpeg", response.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("private, no-store", response.Headers.CacheControl?.ToString());
+        Assert.True(response.Headers.CacheControl is { Private: true, NoStore: true });
         Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
         Assert.Equal("inline", response.Content.Headers.ContentDisposition?.DispositionType);
         Assert.Equal("prescription.jpg", response.Content.Headers.ContentDisposition?.FileName?.Trim('"'));
@@ -77,7 +79,7 @@ public sealed class PrescriptionReadApiTests(SqlServerDatabaseFixture fixture) :
         var setup = await PrescriptionTestSupport.SeedAsync(fixture);
         using var factory = new TestApplicationFactory(fixture.ConnectionString);
         using var owner = await LoginWithCsrfAsync(factory, setup.Owner);
-        using var upload = await owner.PostAsync(Url, Multipart(Jpeg(), "prescription.jpg"));
+        using var upload = await owner.PostAsync(Url, Multipart(PrescriptionTestSupport.Jpeg(), "prescription.jpg"));
         upload.EnsureSuccessStatusCode();
         using var uploadBody = JsonDocument.Parse(await upload.Content.ReadAsStringAsync());
         var imageId = uploadBody.RootElement.GetProperty("id").GetGuid();
@@ -101,7 +103,7 @@ public sealed class PrescriptionReadApiTests(SqlServerDatabaseFixture fixture) :
         var otherSetup = await PrescriptionTestSupport.SeedAsync(fixture);
         using var factory = new TestApplicationFactory(fixture.ConnectionString);
         using var otherOwner = await LoginWithCsrfAsync(factory, otherSetup.Owner);
-        using var upload = await otherOwner.PostAsync(Url, Multipart(Jpeg(), "other.jpg"));
+        using var upload = await otherOwner.PostAsync(Url, Multipart(PrescriptionTestSupport.Jpeg(), "other.jpg"));
         upload.EnsureSuccessStatusCode();
         using var uploadBody = JsonDocument.Parse(await upload.Content.ReadAsStringAsync());
         var imageId = uploadBody.RootElement.GetProperty("id").GetGuid();
@@ -117,15 +119,6 @@ public sealed class PrescriptionReadApiTests(SqlServerDatabaseFixture fixture) :
         file.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
         return new MultipartFormDataContent { { file, "file", fileName } };
     }
-
-    private static byte[] Jpeg() =>
-    [
-        0xFF, 0xD8,
-        0xFF, 0xE0, 0x00, 0x0B, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
-        0x00, 0x00, 0x01, 0x00, 0x01,
-        0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00, 0x12, 0x34,
-        0xFF, 0xD9,
-    ];
 
     private static string GetStoragePath(TestApplicationFactory factory, string storageKey) =>
         Path.Combine(

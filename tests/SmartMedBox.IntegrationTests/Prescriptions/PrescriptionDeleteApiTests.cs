@@ -22,7 +22,7 @@ public sealed class PrescriptionDeleteApiTests(SqlServerDatabaseFixture fixture)
         var setup = await PrescriptionTestSupport.SeedAsync(fixture);
         using var factory = new TestApplicationFactory(fixture.ConnectionString);
         using var owner = await LoginWithCsrfAsync(factory, setup.Owner);
-        using var upload = await owner.PostAsync(Url, Multipart(Jpeg(), "delete-me.jpg"));
+        using var upload = await owner.PostAsync(Url, Multipart(PrescriptionTestSupport.Jpeg(), "delete-me.jpg"));
         upload.EnsureSuccessStatusCode();
         using var uploadBody = JsonDocument.Parse(await upload.Content.ReadAsStringAsync());
         var imageId = uploadBody.RootElement.GetProperty("id").GetGuid();
@@ -61,7 +61,7 @@ public sealed class PrescriptionDeleteApiTests(SqlServerDatabaseFixture fixture)
         var setup = await PrescriptionTestSupport.SeedAsync(fixture);
         using var factory = new TestApplicationFactory(fixture.ConnectionString);
         using var owner = await LoginWithCsrfAsync(factory, setup.Owner);
-        using var upload = await owner.PostAsync(Url, Multipart(Jpeg(), "protected.jpg"));
+        using var upload = await owner.PostAsync(Url, Multipart(PrescriptionTestSupport.Jpeg(), "protected.jpg"));
         upload.EnsureSuccessStatusCode();
         using var uploadBody = JsonDocument.Parse(await upload.Content.ReadAsStringAsync());
         var imageId = uploadBody.RootElement.GetProperty("id").GetGuid();
@@ -80,7 +80,7 @@ public sealed class PrescriptionDeleteApiTests(SqlServerDatabaseFixture fixture)
         var setup = await PrescriptionTestSupport.SeedAsync(fixture);
         using var factory = new TestApplicationFactory(fixture.ConnectionString);
         using var owner = await LoginWithCsrfAsync(factory, setup.Owner);
-        using var upload = await owner.PostAsync(Url, Multipart(Jpeg(), "repeat.jpg"));
+        using var upload = await owner.PostAsync(Url, Multipart(PrescriptionTestSupport.Jpeg(), "repeat.jpg"));
         upload.EnsureSuccessStatusCode();
         using var uploadBody = JsonDocument.Parse(await upload.Content.ReadAsStringAsync());
         var imageId = uploadBody.RootElement.GetProperty("id").GetGuid();
@@ -97,15 +97,6 @@ public sealed class PrescriptionDeleteApiTests(SqlServerDatabaseFixture fixture)
         file.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
         return new MultipartFormDataContent { { file, "file", fileName } };
     }
-
-    private static byte[] Jpeg() =>
-    [
-        0xFF, 0xD8,
-        0xFF, 0xE0, 0x00, 0x0B, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
-        0x00, 0x00, 0x01, 0x00, 0x01,
-        0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00, 0x12, 0x34,
-        0xFF, 0xD9,
-    ];
 
     private static string GetStoragePath(TestApplicationFactory factory, string storageKey) =>
         Path.Combine(

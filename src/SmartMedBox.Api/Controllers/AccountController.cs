@@ -122,7 +122,7 @@ public sealed class AccountController(
         {
             case LoginOutcome.Succeeded:
                 await SessionCookie.SignInAsync(HttpContext, result);
-                return RedirectToAction(nameof(Index));
+                return RedirectToAction(nameof(DashboardPagesController.Index), "DashboardPages");
             case LoginOutcome.InvalidEmail:
                 ModelState.AddModelError(nameof(AccountForm.Email), InvalidEmailMessage);
                 break;

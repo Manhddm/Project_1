@@ -9,5 +9,5 @@ public sealed class SchedulePagesController : Controller
     [HttpGet("")]
     public IActionResult Index() => User.TryGetUserId(out _)
         ? View()
-        : RedirectToAction(nameof(AccountController.Login), "Account", new { returnUrl = "/schedules" });
+        : RedirectToAction(nameof(AccountController.Login), "Account");
 }

@@ -10,6 +10,16 @@ internal sealed record PrescriptionSetup(Guid DeviceId, ApplicationUser Owner, A
 
 internal static class PrescriptionTestSupport
 {
+    /// <summary>JPEG tối giản hợp lệ với <c>ImageSanitizer</c>: SOI + JFIF APP0 + SOS + EOI.</summary>
+    public static byte[] Jpeg() =>
+    [
+        0xFF, 0xD8,
+        0xFF, 0xE0, 0x00, 0x0E, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
+        0x00, 0x00, 0x01, 0x00, 0x01,
+        0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00, 0x12, 0x34,
+        0xFF, 0xD9,
+    ];
+
     /// <summary>Chủ hộp có một hộp đã ghép, một người thân Active và một người ngoài.</summary>
     public static async Task<PrescriptionSetup> SeedAsync(SqlServerDatabaseFixture fixture)
     {

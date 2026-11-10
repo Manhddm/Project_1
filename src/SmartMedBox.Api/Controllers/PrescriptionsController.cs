@@ -13,7 +13,7 @@ public sealed class PrescriptionsController(PrescriptionImageService images) : C
     {
         if (!User.TryGetUserId(out var userId))
         {
-            return RedirectToAction("Login", "Account", new { returnUrl = "/prescriptions" });
+            return RedirectToAction("Login", "Account");
         }
 
         if (await images.GetOwnedDeviceIdAsync(userId, cancellationToken) is null)
