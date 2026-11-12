@@ -14,7 +14,7 @@ public sealed record DeviceEventBatchRequest(string? BatchId, IReadOnlyList<Devi
 
 public sealed record DeviceEventItem(string? EventId, int? CompartmentSlot, string? EventType, DateTimeOffset? OccurredAt);
 
-// matchedDoseInstanceId/doseStatus luôn null cho tới P4-03 (ghép dose).
+// matchedDoseInstanceId/doseStatus chỉ có giá trị khi event xác nhận một dose (P4-03); ngược lại null.
 public sealed record DeviceEventResultDto(
     string EventId,
     string Status,
