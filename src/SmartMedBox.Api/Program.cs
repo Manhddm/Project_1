@@ -156,15 +156,12 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 var app = builder.Build();
 
 app.UseTraceIdLogScope();
+app.UseSecurityHeaders();
 app.UseExceptionHandler();
 
 if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
-}
-
-if (!app.Environment.IsDevelopment())
-{
     app.UseHttpsRedirection();
 }
 app.UseHttpLogging();
