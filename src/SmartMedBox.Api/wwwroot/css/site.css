@@ -106,7 +106,9 @@ p {
     margin-bottom: 1rem;
 }
 
-.field input {
+.field input,
+.field select,
+.field textarea {
     width: 100%;
     max-width: 28rem;
     padding: 0.625rem 0.75rem;
@@ -115,7 +117,20 @@ p {
     font: inherit;
 }
 
+.field input[type="checkbox"] {
+    width: auto;
+    padding: 0;
+}
+
+.field label:has(> input[type="checkbox"]) {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
 input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
 button:focus-visible,
 a:focus-visible {
     outline: 3px solid #f0b429;
