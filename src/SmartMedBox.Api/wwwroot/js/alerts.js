@@ -54,8 +54,8 @@
                     <div class="prescription-card-details">
                         <strong>${escapeHtml(typeLabels[alert.alertType] || alert.alertType)}${alert.readAt ? '' : ' · Chưa đọc'}</strong>
                         <span>${escapeHtml(alert.message)}</span>
-                        <span>${escapeHtml(new Date(alert.createdAt).toLocaleString())}</span>
-                        ${alert.resolvedAt ? `<span>Đã xác nhận muộn lúc ${escapeHtml(new Date(alert.resolvedAt).toLocaleString())}</span>` : ''}
+                        <span>${escapeHtml(new Date(alert.createdAt).toLocaleString('vi-VN'))}</span>
+                        ${alert.resolvedAt ? `<span>Đã xác nhận muộn lúc ${escapeHtml(new Date(alert.resolvedAt).toLocaleString('vi-VN'))}</span>` : ''}
                         ${alert.readAt ? '' : `<div class="prescription-actions"><button type="button" class="secondary-button" data-read="${escapeHtml(alert.id)}">Đánh dấu đã đọc</button></div>`}
                     </div>
                 </article>`).join('') : '<p class="empty-state">Chưa có cảnh báo nào.</p>';

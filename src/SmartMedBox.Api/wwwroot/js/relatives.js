@@ -26,7 +26,7 @@
 
     const setMessage = (element, message) => { element.textContent = message || ''; element.hidden = !message; };
     const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
-    const formatTime = value => value ? new Date(value).toLocaleString() : '';
+    const formatTime = value => value ? new Date(value).toLocaleString('vi-VN') : '';
 
     const request = async (url, options = {}) => {
         const response = await fetch(url, {
@@ -37,7 +37,7 @@
         if (!response.ok) {
             const problem = await response.json().catch(() => null);
             const validation = problem?.errors ? Object.values(problem.errors).flat()[0] : null;
-            const failure = new Error(problem?.detail || validation || messages[problem?.code] || problem?.code || `HTTP_${response.status}`);
+            const failure = new Error(messages[problem?.code] || validation || problem?.detail || problem?.code || `HTTP_${response.status}`);
             failure.status = response.status;
             throw failure;
         }
