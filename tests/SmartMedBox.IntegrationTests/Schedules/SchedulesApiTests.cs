@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using SmartMedBox.Domain.Entities;
 using SmartMedBox.Domain.Enums;
@@ -9,6 +10,8 @@ using SmartMedBox.Infrastructure.Auditing;
 using SmartMedBox.Infrastructure.Devices;
 using SmartMedBox.IntegrationTests.Schema;
 using SmartMedBox.IntegrationTests.TestSupport;
+using SmartMedBox.UnitTests.TestDoubles;
+using static SmartMedBox.IntegrationTests.Dashboard.DashboardTestSupport;
 
 namespace SmartMedBox.IntegrationTests.Schedules;
 
@@ -89,6 +92,51 @@ public sealed class SchedulesApiTests(SqlServerDatabaseFixture fixture) : IClass
             [AuditActions.ScheduleCreated, AuditActions.ScheduleUpdated, AuditActions.ScheduleUpdated, AuditActions.ScheduleDeleted],
             actions);
         Assert.DoesNotContain(await db.AuditLogs.Where(x => x.EntityId == id.ToString()).Select(x => x.Details).ToListAsync(), d => d.Contains("Canxi"));
+    }
+
+    [Fact]
+    public async Task Crud_FakeClock_SetsCreatedUpdatedAndDeletedTimestamps()
+    {
+        var setup = await SeedAsync();
+        var t0 = Now;
+        var clock = new FakeClock(t0);
+        using var factory = CreateFactory(fixture, clock);
+        using var owner = await LoginWithCsrfAsync(factory, setup.Owner);
+
+        using var created = await owner.PostAsJsonAsync("/api/schedules", Body());
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var createdBody = await ReadJsonAsync(created);
+        var id = createdBody.RootElement.GetProperty("id").GetGuid();
+        Assert.Equal(t0, createdBody.RootElement.GetProperty("createdAt").GetDateTimeOffset());
+        using (var get = await ReadJsonAsync(await owner.GetAsync($"/api/schedules/{id}")))
+        {
+            Assert.Equal(t0, get.RootElement.GetProperty("updatedAt").GetDateTimeOffset());
+        }
+
+        var t1 = t0.AddMinutes(2);
+        clock.UtcNow = t1;
+        Assert.Equal(HttpStatusCode.OK, (await owner.PutAsJsonAsync($"/api/schedules/{id}", Body())).StatusCode);
+        using (var list = await ReadJsonAsync(await owner.GetAsync($"/api/schedules?deviceId={setup.DeviceId}")))
+        {
+            var item = Assert.Single(list.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal(t1, item.GetProperty("updatedAt").GetDateTimeOffset());
+        }
+
+        await using (var db = fixture.CreateContext())
+        {
+            var row = await db.MedicationSchedules.AsNoTracking().SingleAsync(x => x.Id == id);
+            Assert.Equal((t0, t1, (DateTimeOffset?)null), (row.CreatedAt, row.UpdatedAt, row.DeletedAt));
+        }
+
+        var t2 = t1.AddMinutes(3);
+        clock.UtcNow = t2;
+        Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync($"/api/schedules/{id}")).StatusCode);
+        await using (var db = fixture.CreateContext())
+        {
+            var row = await db.MedicationSchedules.AsNoTracking().SingleAsync(x => x.Id == id);
+            Assert.True(row.IsDeleted);
+            Assert.Equal((t0, t2, (DateTimeOffset?)t2), (row.CreatedAt, row.UpdatedAt, row.DeletedAt));
+        }
     }
 
     [Fact]
@@ -290,7 +338,7 @@ public sealed class SchedulesApiTests(SqlServerDatabaseFixture fixture) : IClass
         ["instructions"] = "Uống sau ăn",
     };
 
-    private static async Task<HttpClient> LoginWithCsrfAsync(TestApplicationFactory factory, ApplicationUser user)
+    private static async Task<HttpClient> LoginWithCsrfAsync(WebApplicationFactory<Program> factory, ApplicationUser user)
     {
         var client = await TestUsers.LoginAsync(factory, user);
         // Token antiforgery gắn với danh tính: phải lấy lại sau khi đăng nhập.

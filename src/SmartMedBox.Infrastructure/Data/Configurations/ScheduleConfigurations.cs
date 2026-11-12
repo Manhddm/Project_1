@@ -15,6 +15,9 @@ public sealed class MedicationScheduleConfiguration : IEntityTypeConfiguration<M
             table.HasCheckConstraint(
                 "CK_MedicationSchedules_DateRange",
                 "[EndDate] IS NULL OR [EndDate] >= [StartDate]");
+            table.HasCheckConstraint(
+                "CK_MedicationSchedules_DeletedAt",
+                "([IsDeleted] = 1 AND [DeletedAt] IS NOT NULL) OR ([IsDeleted] = 0 AND [DeletedAt] IS NULL)");
         });
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
@@ -23,6 +26,8 @@ public sealed class MedicationScheduleConfiguration : IEntityTypeConfiguration<M
         builder.Property(x => x.EndDate).HasColumnType("date");
         builder.Property(x => x.TimeZoneId).HasMaxLength(100).IsRequired();
         builder.Property(x => x.IsDeleted).HasDefaultValue(false);
+        builder.Property(x => x.CreatedAt).IsRequired();
+        builder.Property(x => x.UpdatedAt).IsRequired();
         builder.HasOne<Device>().WithMany().HasForeignKey(x => x.DeviceId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Compartment>().WithMany().HasForeignKey(x => x.CompartmentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(x => new { x.DeviceId, x.IsDeleted });

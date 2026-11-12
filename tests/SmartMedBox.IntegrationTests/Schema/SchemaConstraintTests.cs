@@ -416,11 +416,28 @@ public sealed class SchemaConstraintTests(SqlServerDatabaseFixture fixture)
         await db.SaveChangesAsync();
 
         schedule.IsDeleted = true;
+        schedule.DeletedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
 
         await using var verify = fixture.CreateContext();
         var stored = await verify.MedicationSchedules.AsNoTracking().SingleAsync(x => x.Id == schedule.Id);
         Assert.True(stored.IsDeleted);
+        Assert.NotNull(stored.DeletedAt);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task MedicationSchedules_IsDeletedWithoutMatchingDeletedAt_IsRejected(bool isDeleted, bool hasDeletedAt)
+    {
+        await using var db = fixture.CreateContext();
+        var (device, compartment) = await SeedDeviceAsync(db);
+        var schedule = NewSchedule(device.Id, compartment.Id);
+        schedule.IsDeleted = isDeleted;
+        schedule.DeletedAt = hasDeletedAt ? DateTimeOffset.UtcNow : null;
+        db.MedicationSchedules.Add(schedule);
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
     [Theory]

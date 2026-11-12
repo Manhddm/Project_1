@@ -709,3 +709,82 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112130744_AddScheduleTimestamps'
+)
+BEGIN
+    ALTER TABLE [MedicationSchedules] ADD [CreatedAt] datetimeoffset NOT NULL DEFAULT (TODATETIMEOFFSET(SYSUTCDATETIME(), 0));
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112130744_AddScheduleTimestamps'
+)
+BEGIN
+    ALTER TABLE [MedicationSchedules] ADD [UpdatedAt] datetimeoffset NOT NULL DEFAULT (TODATETIMEOFFSET(SYSUTCDATETIME(), 0));
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112130744_AddScheduleTimestamps'
+)
+BEGIN
+    ALTER TABLE [MedicationSchedules] ADD [DeletedAt] datetimeoffset NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112130744_AddScheduleTimestamps'
+)
+BEGIN
+    EXEC(N'UPDATE [MedicationSchedules] SET [DeletedAt] = [UpdatedAt] WHERE [IsDeleted] = 1;');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112130744_AddScheduleTimestamps'
+)
+BEGIN
+    DECLARE @var nvarchar(max);
+    SELECT @var = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[MedicationSchedules]') AND [c].[name] = N'CreatedAt');
+    IF @var IS NOT NULL EXEC(N'ALTER TABLE [MedicationSchedules] DROP CONSTRAINT ' + @var + ';');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112130744_AddScheduleTimestamps'
+)
+BEGIN
+    DECLARE @var1 nvarchar(max);
+    SELECT @var1 = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[MedicationSchedules]') AND [c].[name] = N'UpdatedAt');
+    IF @var1 IS NOT NULL EXEC(N'ALTER TABLE [MedicationSchedules] DROP CONSTRAINT ' + @var1 + ';');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112130744_AddScheduleTimestamps'
+)
+BEGIN
+    EXEC(N'ALTER TABLE [MedicationSchedules] ADD CONSTRAINT [CK_MedicationSchedules_DeletedAt] CHECK (([IsDeleted] = 1 AND [DeletedAt] IS NOT NULL) OR ([IsDeleted] = 0 AND [DeletedAt] IS NULL))');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112130744_AddScheduleTimestamps'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261112130744_AddScheduleTimestamps', N'10.0.11');
+END;
+
+COMMIT;
+GO
+

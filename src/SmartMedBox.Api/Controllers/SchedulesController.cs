@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using SmartMedBox.Api.Contracts;
 using SmartMedBox.Api.Errors;
 using SmartMedBox.Api.Security;
-using SmartMedBox.Domain.Abstractions;
 using SmartMedBox.Infrastructure.Schedules;
 
 namespace SmartMedBox.Api.Controllers;
@@ -12,7 +11,7 @@ namespace SmartMedBox.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/schedules")]
-public sealed class SchedulesController(ScheduleService schedules, IClock clock) : ControllerBase
+public sealed class SchedulesController(ScheduleService schedules) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] Guid? deviceId, CancellationToken cancellationToken)
@@ -62,7 +61,7 @@ public sealed class SchedulesController(ScheduleService schedules, IClock clock)
         return CreatedAtAction(
             nameof(Get),
             new { id = result.ScheduleId },
-            new ScheduleCreatedResponse(result.ScheduleId, result.ScheduleVersion, clock.UtcNow));
+            new ScheduleCreatedResponse(result.ScheduleId, result.ScheduleVersion, result.CreatedAt));
     }
 
     [HttpPut("{id:guid}")]
@@ -134,5 +133,6 @@ public sealed class SchedulesController(ScheduleService schedules, IClock clock)
         view.GracePeriodMinutes,
         view.TimeZoneId,
         view.Items.Select(x => new ScheduleItemDto(x.Id, x.MedicineName, x.Quantity, x.Unit, x.Instructions)).ToList(),
-        view.Version);
+        view.Version,
+        view.UpdatedAt);
 }

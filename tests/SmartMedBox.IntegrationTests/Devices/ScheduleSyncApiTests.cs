@@ -206,7 +206,7 @@ public sealed class ScheduleSyncApiTests(SqlServerDatabaseFixture fixture) : ICl
             await writer.Devices.Where(x => x.Id == deviceKey)
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.ScheduleVersion, x => x.ScheduleVersion + 1));
             await writer.MedicationSchedules.Where(x => x.Id == removed.ScheduleId)
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.IsDeleted, true));
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.IsDeleted, true).SetProperty(x => x.DeletedAt, DateTimeOffset.UtcNow));
 
             var sync = client.SendAsync(SyncRequest(box.Device, 0));
             await Task.Delay(500);

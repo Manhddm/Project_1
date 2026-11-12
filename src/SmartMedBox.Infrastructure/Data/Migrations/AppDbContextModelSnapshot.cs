@@ -584,6 +584,12 @@ namespace SmartMedBox.Infrastructure.Data.Migrations
                     b.Property<Guid>("CompartmentId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<Guid>("DeviceId")
                         .HasColumnType("uniqueidentifier");
 
@@ -609,6 +615,9 @@ namespace SmartMedBox.Infrastructure.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CompartmentId");
@@ -618,6 +627,8 @@ namespace SmartMedBox.Infrastructure.Data.Migrations
                     b.ToTable("MedicationSchedules", null, t =>
                         {
                             t.HasCheckConstraint("CK_MedicationSchedules_DateRange", "[EndDate] IS NULL OR [EndDate] >= [StartDate]");
+
+                            t.HasCheckConstraint("CK_MedicationSchedules_DeletedAt", "([IsDeleted] = 1 AND [DeletedAt] IS NOT NULL) OR ([IsDeleted] = 0 AND [DeletedAt] IS NULL)");
 
                             t.HasCheckConstraint("CK_MedicationSchedules_Grace", "[GracePeriodMinutes] BETWEEN 1 AND 120");
                         });

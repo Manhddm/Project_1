@@ -50,7 +50,8 @@ public sealed record ScheduleView(
     int GracePeriodMinutes,
     string TimeZoneId,
     IReadOnlyList<ScheduleItemView> Items,
-    int Version);
+    int Version,
+    DateTimeOffset UpdatedAt);
 
 public enum ScheduleSyncOutcome
 {
@@ -61,7 +62,11 @@ public enum ScheduleSyncOutcome
 
 public sealed record ScheduleSyncPackage(int Version, IReadOnlyList<ScheduleView> Schedules);
 
-public sealed record ScheduleWriteResult(ScheduleOutcome Outcome, Guid ScheduleId = default, int ScheduleVersion = 0);
+public sealed record ScheduleWriteResult(
+    ScheduleOutcome Outcome,
+    Guid ScheduleId = default,
+    int ScheduleVersion = 0,
+    DateTimeOffset CreatedAt = default);
 
 /// <summary>
 /// CRUD lịch uống (P3-02). Quyền theo hộp qua <see cref="DeviceAccessService"/>; <c>userId</c> luôn lấy từ phiên.
@@ -160,7 +165,8 @@ public sealed class ScheduleService(AppDbContext db, DeviceAccessService access,
             return new ScheduleWriteResult(isRelative ? ScheduleOutcome.Forbidden : ScheduleOutcome.DeviceNotPaired);
         }
 
-        var schedule = new MedicationSchedule { Id = Guid.NewGuid(), DeviceId = deviceId.Value };
+        var now = clock.UtcNow;
+        var schedule = new MedicationSchedule { Id = Guid.NewGuid(), DeviceId = deviceId.Value, CreatedAt = now, UpdatedAt = now };
         var outcome = await ApplyAsync(schedule, input, cancellationToken);
         if (outcome != ScheduleOutcome.Ok)
         {
@@ -196,6 +202,7 @@ public sealed class ScheduleService(AppDbContext db, DeviceAccessService access,
             return new ScheduleWriteResult(outcome);
         }
 
+        schedule.UpdatedAt = clock.UtcNow;
         return await CommitAsync(userId, schedule, input, AuditActions.ScheduleUpdated, replaceChildren: true, cancellationToken);
     }
 
@@ -216,6 +223,8 @@ public sealed class ScheduleService(AppDbContext db, DeviceAccessService access,
 
         // Xóa mềm: giữ hàng lịch/ngày/thuốc để lịch sử dose còn truy vết được.
         schedule.IsDeleted = true;
+        schedule.DeletedAt = clock.UtcNow;
+        schedule.UpdatedAt = schedule.DeletedAt.Value;
         await CommitAsync(userId, schedule, input: null, AuditActions.ScheduleDeleted, replaceChildren: false, cancellationToken);
         return ScheduleOutcome.Ok;
     }
@@ -321,7 +330,7 @@ public sealed class ScheduleService(AppDbContext db, DeviceAccessService access,
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return new ScheduleWriteResult(ScheduleOutcome.Ok, schedule.Id, version);
+        return new ScheduleWriteResult(ScheduleOutcome.Ok, schedule.Id, version, schedule.CreatedAt);
     }
 
     private async Task<bool> OverlapsAsync(MedicationSchedule schedule, IReadOnlyCollection<int> days, CancellationToken cancellationToken)
@@ -444,7 +453,8 @@ public sealed class ScheduleService(AppDbContext db, DeviceAccessService access,
                 items.Where(x => x.ScheduleId == row.Schedule.Id)
                     .Select(x => new ScheduleItemView(x.Id, x.MedicineName, x.Quantity, x.Unit, x.Instructions))
                     .ToList(),
-                row.ScheduleVersion))
+                row.ScheduleVersion,
+                row.Schedule.UpdatedAt))
             .ToList();
     }
 }

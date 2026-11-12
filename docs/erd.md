@@ -17,7 +17,7 @@
 | `DevicePairingCodes` | `DevicePairingCode` | `CodeHash` unique; dùng một lần |
 | `Compartments` | `Compartment` | Unique `(DeviceId, SlotNumber)`, check 1–3 |
 | `DeviceEvents` | `DeviceEvent` | Unique `(DeviceId, EventId)`; append-only |
-| `MedicationSchedules` | `MedicationSchedule` | Xóa mềm; grace 1–120; `EndDate >= StartDate` |
+| `MedicationSchedules` | `MedicationSchedule` | Xóa mềm (`IsDeleted` + `DeletedAt`); `CreatedAt`/`UpdatedAt`; grace 1–120; `EndDate >= StartDate` |
 | `ScheduleDays` | `ScheduleDay` | PK `(ScheduleId, DayOfWeek)`, check 1–7 |
 | `ScheduleItems` | `ScheduleItem` | Quantity `decimal(10,2)` > 0 |
 | `DoseInstances` | `DoseInstance` | Unique `(ScheduleId, ScheduledAt)`; trạng thái enum |
@@ -34,7 +34,7 @@
 |---|---|
 | Unique | `ApplicationUsers.Email`; `AuthTokens.TokenHash`; `Devices.DeviceId`; `Devices.SerialNumber`; `DevicePairingCodes.CodeHash`; `Compartments(DeviceId, SlotNumber)`; `DeviceEvents(DeviceId, EventId)`; `DoseInstances(ScheduleId, ScheduledAt)`; `Alerts(DoseInstanceId, AlertType)`; `AlertRecipients(AlertId, RecipientUserId, Channel)`; `EmailDeliveries(AlertRecipientId, AttemptNumber)`; `ScheduleDays(ScheduleId, DayOfWeek)` |
 | Filtered unique | `Devices.OwnerUserId` khi khác NULL; `CareRelationships(DeviceId, RelativeUserId)` khi `Status='Active'`; `RelativeInvitations(DeviceId, InviteeEmail)` khi `Status='Pending'` |
-| Check | Slot 1–3; DayOfWeek 1–7; Grace 1–120; `EndDate` NULL hoặc `>= StartDate`; Quantity > 0; `AuthTokens.Purpose` thuộc `{EmailVerification, PasswordReset}`; `Status`/`AlertType`/`EventType`/`Channel` thuộc enum đã chốt |
+| Check | Slot 1–3; DayOfWeek 1–7; Grace 1–120; `EndDate` NULL hoặc `>= StartDate`; `MedicationSchedules`: `IsDeleted = 1` ⇔ `DeletedAt IS NOT NULL`; Quantity > 0; `AuthTokens.Purpose` thuộc `{EmailVerification, PasswordReset}`; `Status`/`AlertType`/`EventType`/`Channel` thuộc enum đã chốt |
 
 ## 3. Index đường đọc nóng
 
@@ -56,4 +56,5 @@
 - Giá trị enum theo [API_CONTRACT.md §10.2](API_CONTRACT.md#enums) — **D-09 đã chốt 2026-10-29**; check constraint trong `InitialSchema` khớp đúng các giá trị này.
 - `Devices.LastSeenAt` cho phép NULL = chưa từng thấy/offline (AGENTS §3.3); chỉ dùng cho `isOnline` hiện tại. Online tại `DeadlineAt` lấy từ `DeviceConnectivityWindows` (D-12): có phiên `OnlineFrom ≤ DeadlineAt` và `LastSeenAt ≥ DeadlineAt − 5 phút`.
 - `EmailDeliveries.Status` có thêm `Cancelled` (D-24c, migration `AddConnectivityWindowsAndCancelledDelivery`).
+- `MedicationSchedules.CreatedAt`/`UpdatedAt`/`DeletedAt` (P3-02, migration `AddScheduleTimestamps`): app set qua `IClock`; hàng có sẵn trước migration được backfill bằng giờ UTC lúc migrate (`DeletedAt` cùng giá trị nếu đã xóa mềm), không giữ default trong schema.
 - `PrescriptionImages` không có cột nhị phân; file nằm ngoài CSDL (D-04).

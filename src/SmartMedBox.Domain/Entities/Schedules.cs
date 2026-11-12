@@ -13,6 +13,9 @@ public sealed class MedicationSchedule
     public int GracePeriodMinutes { get; set; }
     public string TimeZoneId { get; set; } = string.Empty;
     public bool IsDeleted { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public DateTimeOffset? DeletedAt { get; set; }
 }
 
 public sealed class ScheduleDay

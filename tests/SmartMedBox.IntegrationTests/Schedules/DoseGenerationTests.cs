@@ -170,7 +170,7 @@ public sealed class DoseGenerationTests(SqlServerDatabaseFixture fixture) : ICla
         await using (var db = fixture.CreateContext())
         {
             await db.MedicationSchedules.Where(x => x.Id == seed.ScheduleId)
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.IsDeleted, true));
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.IsDeleted, true).SetProperty(x => x.DeletedAt, DateTimeOffset.UtcNow));
         }
 
         Assert.Equal(new DoseGenerationResult(0, 0), await GenerateAsync(Utc(2036, 12, 31), Utc(2037, 1, 10)));

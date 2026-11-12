@@ -73,7 +73,8 @@ public sealed record ScheduleDto(
     int GracePeriodMinutes,
     string TimeZoneId,
     IReadOnlyList<ScheduleItemDto> Items,
-    int Version);
+    int Version,
+    DateTimeOffset UpdatedAt);
 
 public sealed record ScheduleListResponse(IReadOnlyList<ScheduleDto> Items);
 
