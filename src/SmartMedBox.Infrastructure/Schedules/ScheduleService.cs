@@ -20,6 +20,7 @@ public enum ScheduleOutcome
     InvalidTimeZone,
     InvalidDays,
     InvalidDateRange,
+    Overlap,
 }
 
 public sealed record ScheduleItemInput(string MedicineName, decimal Quantity, string Unit, string? Instructions);
@@ -230,6 +231,13 @@ public sealed class ScheduleService(AppDbContext db, DeviceAccessService access,
             .Where(x => x.Id == schedule.DeviceId)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.ScheduleVersion, x => x.ScheduleVersion + 1), cancellationToken);
 
+        // D-23: kiểm tra sau khi đã giữ khóa hàng Devices nên hai lần ghi đồng thời vào cùng hộp được tuần tự hóa;
+        // từ chối thì transaction bị rollback khi dispose (không tăng version, không audit).
+        if (input is not null && await OverlapsAsync(schedule, input.DaysOfWeek, cancellationToken))
+        {
+            return new ScheduleWriteResult(ScheduleOutcome.Overlap);
+        }
+
         if (replaceChildren)
         {
             await db.ScheduleDays.Where(x => x.ScheduleId == schedule.Id).ExecuteDeleteAsync(cancellationToken);
@@ -270,6 +278,87 @@ public sealed class ScheduleService(AppDbContext db, DeviceAccessService access,
         await transaction.CommitAsync(cancellationToken);
         return new ScheduleWriteResult(ScheduleOutcome.Ok, schedule.Id, version);
     }
+
+    private async Task<bool> OverlapsAsync(MedicationSchedule schedule, IReadOnlyCollection<int> days, CancellationToken cancellationToken)
+    {
+        var others = await db.MedicationSchedules
+            .AsNoTracking()
+            .Where(x => x.CompartmentId == schedule.CompartmentId && !x.IsDeleted && x.Id != schedule.Id)
+            .Select(x => new
+            {
+                x.TimeOfDay,
+                x.GracePeriodMinutes,
+                x.StartDate,
+                x.EndDate,
+                x.TimeZoneId,
+                Days = db.ScheduleDays.Where(d => d.ScheduleId == x.Id).Select(d => d.DayOfWeek).ToList(),
+            })
+            .ToListAsync(cancellationToken);
+
+        var candidate = new OverlapWindow(schedule.TimeOfDay, schedule.GracePeriodMinutes, schedule.StartDate, schedule.EndDate, schedule.TimeZoneId, days);
+        return others.Any(o => Overlaps(candidate, new OverlapWindow(o.TimeOfDay, o.GracePeriodMinutes, o.StartDate, o.EndDate, o.TimeZoneId, o.Days)));
+    }
+
+    public sealed record OverlapWindow(
+        TimeOnly TimeOfDay,
+        int GracePeriodMinutes,
+        DateOnly StartDate,
+        DateOnly? EndDate,
+        string TimeZoneId,
+        IReadOnlyCollection<int> DaysOfWeek);
+
+    /// <summary>
+    /// D-23: true khi có một ngày <c>d</c> của A và ngày <c>d + k</c> của B (đều trong khung ngày + thứ của từng lịch)
+    /// mà cửa sổ <c>[giờ, giờ + grace]</c> giao nhau (inclusive). <c>k</c> ≠ 0 bắt cửa sổ vắt qua nửa đêm.
+    /// </summary>
+    public static bool Overlaps(OverlapWindow a, OverlapWindow b)
+    {
+        var aStart = a.StartDate.DayNumber;
+        var aEnd = (a.EndDate ?? DateOnly.MaxValue).DayNumber;
+        var bStart = b.StartDate.DayNumber;
+        var bEnd = (b.EndDate ?? DateOnly.MaxValue).DayNumber;
+
+        // Cùng timezone: so giờ địa phương (shift = 0). Khác timezone: quy B về khung giờ của A theo offset UTC tại mốc đầu tiên.
+        // shortcut: offset lấy một lần ở ngày đầu khung giao nhau, bỏ qua DST đổi về sau; nâng cấp nếu cần so khác timezone qua DST.
+        var shift = 0;
+        if (a.TimeZoneId != b.TimeZoneId)
+        {
+            var first = DateOnly.FromDayNumber(Math.Max(aStart, bStart));
+            shift = (int)(OffsetAt(a, first) - OffsetAt(b, first)).TotalMinutes;
+        }
+
+        var aFrom = a.TimeOfDay.Hour * 60 + a.TimeOfDay.Minute;
+        var bFrom = b.TimeOfDay.Hour * 60 + b.TimeOfDay.Minute + shift;
+
+        // Grace ≤ 120 phút và lệch timezone ≤ 26 giờ nên chỉ cần xét lệch ngày k trong [-3, 3].
+        for (var k = -3; k <= 3; k++)
+        {
+            var bFromShifted = bFrom + k * 1440;
+            if (aFrom > bFromShifted + b.GracePeriodMinutes || bFromShifted > aFrom + a.GracePeriodMinutes)
+            {
+                continue;
+            }
+
+            // d thuộc khung của A và d + k thuộc khung của B; 7 ngày đầu đủ phủ mọi thứ trong tuần.
+            var lo = Math.Max(aStart, bStart - k);
+            var hi = Math.Min(Math.Min(aEnd, bEnd - k), lo + 6);
+            for (var d = lo; d <= hi; d++)
+            {
+                if (a.DaysOfWeek.Contains(IsoDay(d)) && b.DaysOfWeek.Contains(IsoDay(d + k)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static TimeSpan OffsetAt(OverlapWindow window, DateOnly date) =>
+        TimeZoneInfo.FindSystemTimeZoneById(window.TimeZoneId).GetUtcOffset(date.ToDateTime(window.TimeOfDay));
+
+    // DayNumber 0 (0001-01-01) là thứ Hai → ISO 1..7.
+    private static int IsoDay(int dayNumber) => dayNumber % 7 + 1;
 
     private Task<Guid?> FindDeviceIdAsync(Guid scheduleId, CancellationToken cancellationToken) =>
         db.MedicationSchedules

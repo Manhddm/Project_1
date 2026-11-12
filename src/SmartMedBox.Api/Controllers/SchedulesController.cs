@@ -103,6 +103,11 @@ public sealed class SchedulesController(ScheduleService schedules, IClock clock)
         ScheduleOutcome.InvalidTimeZone => ApiProblemResults.Create(HttpContext, StatusCodes.Status400BadRequest, ErrorCodes.ScheduleInvalidTimezone),
         ScheduleOutcome.InvalidDays => ApiProblemResults.Validation(HttpContext, "daysOfWeek", "Ngày trong tuần phải từ 1 đến 7, không trùng, ít nhất một ngày."),
         ScheduleOutcome.InvalidDateRange => ApiProblemResults.Validation(HttpContext, "endDate", "Ngày kết thúc phải từ ngày bắt đầu trở đi."),
+        ScheduleOutcome.Overlap => ApiProblemResults.Create(
+            HttpContext,
+            StatusCodes.Status409Conflict,
+            ErrorCodes.ScheduleOverlap,
+            "Lịch chồng lấn với một lịch khác cùng ngăn (cùng thứ, khung ngày và cửa sổ giờ giao nhau)."),
         _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, null),
     };
 
