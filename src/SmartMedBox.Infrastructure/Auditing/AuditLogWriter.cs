@@ -18,6 +18,7 @@ public static class AuditActions
     public const string DevicePaired = "DevicePaired";
     public const string PrescriptionImageUploaded = "PrescriptionImageUploaded";
     public const string PrescriptionImageDeleted = "PrescriptionImageDeleted";
+    public const string AlertCreated = "AlertCreated";
 }
 
 public static class AuditLogWriter

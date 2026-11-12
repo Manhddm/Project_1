@@ -2,6 +2,7 @@
 using SmartMedBox.Domain.Abstractions;
 using SmartMedBox.Domain.Entities;
 using SmartMedBox.Domain.Enums;
+using SmartMedBox.Infrastructure.Auditing;
 using SmartMedBox.Infrastructure.Data;
 using SmartMedBox.Infrastructure.Devices;
 
@@ -55,12 +56,17 @@ public sealed class AlertEvaluationService(AppDbContext db, IClock clock, Device
 
         var alert = new Alert { Id = Guid.NewGuid(), DoseInstanceId = dose.Id, AlertType = alertType, Message = message, CreatedAt = now };
         db.Alerts.Add(alert);
-        foreach (var recipient in recipients.DistinctBy(x => x.Id))
+        var distinctRecipients = recipients.DistinctBy(x => x.Id).ToList();
+        foreach (var recipient in distinctRecipients)
         {
             var alertRecipient = new AlertRecipient { Id = Guid.NewGuid(), AlertId = alert.Id, RecipientUserId = recipient.Id, Channel = "Email" };
             db.AlertRecipients.Add(alertRecipient);
             db.EmailDeliveries.Add(new EmailDelivery { Id = Guid.NewGuid(), AlertRecipientId = alertRecipient.Id, AttemptNumber = 1, Status = EmailDeliveryStatus.Pending, NextAttemptAt = now });
         }
+
+        // System action (no actor); only alert type + recipient count, never emails or message body.
+        AuditLogWriter.Add(db, now, AuditActions.AlertCreated, nameof(Alert), alert.Id.ToString(), actorUserId: null,
+            dose.DeviceId, $"{{\"alertType\":\"{alertType}\",\"recipients\":{distinctRecipients.Count}}}");
 
         try
         {

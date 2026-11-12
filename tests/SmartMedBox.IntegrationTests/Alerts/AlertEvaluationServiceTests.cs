@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartMedBox.Domain.Enums;
+using SmartMedBox.Infrastructure.Auditing;
 
 namespace SmartMedBox.IntegrationTests.Alerts;
 
@@ -168,6 +169,13 @@ public sealed class AlertEvaluationServiceTests
 
         Assert.Equal(doseIds.Count, results.Sum(x => x.CreatedCount));
         await AssertSingleAlertPerDoseAsync(env, box, doseIds);
+
+        // P7-01: one system audit row per alert, written in the same transaction.
+        await using var verify = env.CreateContext();
+        var alertIds = (await verify.Alerts.Select(x => x.Id).ToListAsync()).Select(x => x.ToString());
+        var audits = await verify.AuditLogs.Where(x => x.Action == AuditActions.AlertCreated).ToListAsync();
+        Assert.Equal(alertIds.Order(), audits.Select(x => x.EntityId).Order());
+        Assert.All(audits, x => Assert.Equal(((Guid?)null, (Guid?)box.DeviceId), (x.ActorUserId, x.DeviceId)));
     }
 
     [Fact]
@@ -194,6 +202,7 @@ public sealed class AlertEvaluationServiceTests
         Assert.Equal(1, await verify.Alerts.CountAsync());
         Assert.Equal(0, await verify.AlertRecipients.CountAsync());
         Assert.Equal(0, await verify.EmailDeliveries.CountAsync());
+        Assert.Equal(0, await verify.AuditLogs.CountAsync());
     }
 
     [Fact]
