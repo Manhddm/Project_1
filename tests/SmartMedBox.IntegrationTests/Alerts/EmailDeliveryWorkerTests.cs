@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartMedBox.Domain.Entities;
 using SmartMedBox.Domain.Enums;
 using SmartMedBox.Infrastructure.Data;
 using SmartMedBox.Infrastructure.Email;
@@ -215,6 +216,40 @@ public sealed class EmailDeliveryWorkerTests
         Assert.Empty(sender.Sent);
         await using var verify = env.CreateContext();
         Assert.Equal(EmailDeliveryStatus.Cancelled, (await verify.EmailDeliveries.SingleAsync()).Status);
+    }
+
+    [Fact]
+    public async Task ProcessNextAsync_Sent_BodyIsRenderedTemplateFromDoseSnapshotNotCurrentSchedule()
+    {
+        await using var env = await AlertTestDatabase.CreateAsync();
+        var box = await env.SeedBoxAsync(lastSeenAt: env.Clock.UtcNow, activeRelatives: 1, revokedRelatives: 0);
+        // Deadline 23:59 UTC, scheduled 23:29 UTC on 11/11 = 06:29 on 12/11 in Asia/Ho_Chi_Minh.
+        var doseId = await env.SeedDoseAsync(box, env.Clock.UtcNow.AddMinutes(-1));
+        await using (var db = env.CreateContext())
+        {
+            db.DoseItemSnapshots.AddRange(
+                new DoseItemSnapshot { Id = Guid.NewGuid(), DoseInstanceId = doseId, MedicineName = "Vitamin C", Quantity = 1, Unit = "viên" },
+                new DoseItemSnapshot { Id = Guid.NewGuid(), DoseInstanceId = doseId, MedicineName = "Paracetamol 500mg", Quantity = 1, Unit = "viên" });
+            // The current schedule changed after the dose was generated: must not leak into the email.
+            db.ScheduleItems.Add(new ScheduleItem { Id = Guid.NewGuid(), ScheduleId = box.ScheduleId, MedicineName = "Thuốc mới", Quantity = 1, Unit = "viên" });
+            await db.SaveChangesAsync();
+            Assert.Equal(1, (await env.CreateEvaluator(db).EvaluateAsync()).CreatedCount);
+        }
+
+        var sender = new FakeEmailSender();
+        await using (var db = env.CreateContext()) await DrainAsync(env.CreateWorker(db, sender));
+
+        var expected = EmailTemplates.DoseAlert(
+            "unused", AlertType.OverdueUnconfirmed, ["Paracetamol 500mg", "Vitamin C"],
+            new DateTimeOffset(2026, 11, 11, 23, 29, 0, TimeSpan.Zero), "Asia/Ho_Chi_Minh", 1).Body;
+        Assert.Contains("lúc 06:29 ngày 12/11/2026 ở ngăn Sáng (ngăn 1) đã quá hạn", expected);
+        Assert.Equal(2, sender.Sent.Count);
+        Assert.All(sender.Sent, x =>
+        {
+            Assert.Equal(expected, x.Body); // identical for owner and relative
+            Assert.DoesNotContain("Thuốc mới", x.Body);
+            Assert.DoesNotContain("@", x.Body);
+        });
     }
 
     private static async Task RevokeAsync(AlertTestDatabase env, Box box, Guid relativeId)

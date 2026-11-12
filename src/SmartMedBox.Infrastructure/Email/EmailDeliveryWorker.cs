@@ -38,8 +38,12 @@ public sealed class EmailDeliveryWorker(AppDbContext db, IClock clock, IEmailSen
             join recipient in db.AlertRecipients on delivery.AlertRecipientId equals recipient.Id
             join alert in db.Alerts on recipient.AlertId equals alert.Id
             join dose in db.DoseInstances on alert.DoseInstanceId equals dose.Id
+            join compartment in db.Compartments on dose.CompartmentId equals compartment.Id
+            join schedule in db.MedicationSchedules on dose.ScheduleId equals schedule.Id
             join user in db.ApplicationUsers on recipient.RecipientUserId equals user.Id
-            where delivery.Id == id select new { delivery.Id, delivery.AttemptNumber, UserId = user.Id, user.Email, alert.Message, dose.DeviceId }).SingleAsync(cancellationToken);
+            where delivery.Id == id
+            select new { delivery.Id, delivery.AttemptNumber, UserId = user.Id, user.Email, alert.AlertType, DoseId = dose.Id, dose.DeviceId, dose.ScheduledAt, compartment.SlotNumber, schedule.TimeZoneId })
+            .SingleAsync(cancellationToken);
 
         // D-24c: recipient lost access (relative revoked, owner unpaired) after the alert was created → cancel, never send.
         if (!await _access.CanAsync(payload.UserId, payload.DeviceId, DeviceOperation.Read, cancellationToken))
@@ -51,7 +55,11 @@ public sealed class EmailDeliveryWorker(AppDbContext db, IClock clock, IEmailSen
 
         try
         {
-            var messageId = await sender.SendAsync(EmailTemplates.DoseAlert(payload.Email, payload.Message), cancellationToken);
+            // Medicines come from the dose snapshot, never the current (possibly edited) schedule.
+            var medicines = await db.DoseItemSnapshots.AsNoTracking().Where(x => x.DoseInstanceId == payload.DoseId)
+                .OrderBy(x => x.MedicineName).Select(x => x.MedicineName).ToListAsync(cancellationToken);
+            var message = EmailTemplates.DoseAlert(payload.Email, payload.AlertType, medicines, payload.ScheduledAt, payload.TimeZoneId, payload.SlotNumber);
+            var messageId = await sender.SendAsync(message, cancellationToken);
             var sent = await db.EmailDeliveries.Where(x => x.Id == payload.Id && x.Status == EmailDeliveryStatus.Pending && x.LockedUntil == leaseUntil)
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, EmailDeliveryStatus.Sent).SetProperty(x => x.SentAt, now)
                     .SetProperty(x => x.ProviderMessageId, messageId).SetProperty(x => x.LockedUntil, (DateTimeOffset?)null), cancellationToken);
