@@ -29,6 +29,22 @@ public sealed class EmailDeliveryWorkerTests
     }
 
     [Fact]
+    public async Task ProcessNextAsync_Sent_StoresMessageIdAsProviderMessageIdWithVietnameseSubject()
+    {
+        await using var env = await AlertTestDatabase.CreateAsync();
+        await SeedAlertAsync(env);
+        var sender = new FakeEmailSender();
+
+        await using (var db = env.CreateContext()) await DrainAsync(env.CreateWorker(db, sender));
+
+        await using var verify = env.CreateContext();
+        var stored = await verify.EmailDeliveries.Select(x => x.ProviderMessageId).ToListAsync();
+        Assert.Equal(sender.MessageIds.Order(), stored.Order()!);
+        Assert.All(stored, x => Assert.Matches("^<[0-9a-f]{32}@test.local>$", x));
+        Assert.All(sender.Sent, x => Assert.Equal("Cảnh báo lần uống từ Hộp thuốc thông minh", x.Subject));
+    }
+
+    [Fact]
     public async Task ProcessNextAsync_TwoConcurrentWorkers_NeverSendSameDeliveryTwice()
     {
         await using var env = await AlertTestDatabase.CreateAsync();

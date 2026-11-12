@@ -22,9 +22,11 @@ public sealed class FileEmailSenderTests : IDisposable
             "Thông báo hộp thuốc",
             "Ngăn Sáng đã được mở trong cửa sổ nhắc.");
 
-        await sender.SendAsync(message);
+        var messageId = await sender.SendAsync(message);
 
         var file = Assert.Single(Directory.GetFiles(_directory, "*.eml"));
+        Assert.Matches("^<[0-9a-f]{32}@smartmedbox.local>$", messageId);
+        Assert.Contains($"Message-ID: {messageId}\n", await File.ReadAllTextAsync(file), StringComparison.Ordinal);
         Assert.StartsWith("20261029T083015123Z-", Path.GetFileName(file), StringComparison.Ordinal);
 
         var content = await File.ReadAllTextAsync(file);
