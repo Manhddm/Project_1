@@ -14,7 +14,7 @@ public sealed class AlertEvaluationService(AppDbContext db, IClock clock, IAlert
     {
         var now = clock.UtcNow;
         var doseIds = await db.DoseInstances.AsNoTracking()
-            .Where(x => x.Status == DoseStatus.Pending && x.DeadlineAt <= now)
+            .Where(x => x.Status == DoseStatus.Pending && x.DeadlineAt < now) // window [ScheduledAt, DeadlineAt] is inclusive
             .OrderBy(x => x.DeadlineAt).Select(x => x.Id).ToListAsync(cancellationToken);
         var created = 0;
         foreach (var doseId in doseIds)
@@ -29,7 +29,7 @@ public sealed class AlertEvaluationService(AppDbContext db, IClock clock, IAlert
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var dose = await db.DoseInstances.AsNoTracking()
-            .Where(x => x.Id == doseId && x.Status == DoseStatus.Pending && x.DeadlineAt <= now)
+            .Where(x => x.Id == doseId && x.Status == DoseStatus.Pending && x.DeadlineAt < now)
             .Select(x => new { x.Id, x.DeviceId, x.DeadlineAt }).SingleOrDefaultAsync(cancellationToken);
         if (dose is null) return false;
 
@@ -38,7 +38,7 @@ public sealed class AlertEvaluationService(AppDbContext db, IClock clock, IAlert
         var online = connectivityPolicy.Evaluate(dose.DeadlineAt, device.LastSeenAt) == AlertConnectivity.Online;
         var status = online ? DoseStatus.Overdue : DoseStatus.Unknown;
         var alertType = online ? AlertType.OverdueUnconfirmed : AlertType.UnconfirmedOffline;
-        var message = online ? "Overdue: the correct compartment lid was not opened in the confirmation window." : "Cannot confirm because the device was offline at the deadline.";
+        var message = online ? "Lần uống đã quá hạn và chưa được xác nhận: nắp ngăn đúng chưa được mở trong thời gian chờ." : "Không thể xác nhận do mất kết nối.";
 
         var claimed = await db.DoseInstances.Where(x => x.Id == dose.Id && x.Status == DoseStatus.Pending)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, status), cancellationToken);
