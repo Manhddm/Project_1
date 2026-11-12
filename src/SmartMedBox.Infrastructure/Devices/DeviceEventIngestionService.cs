@@ -1,5 +1,6 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SmartMedBox.Domain.Abstractions;
 using SmartMedBox.Domain.Devices;
 using SmartMedBox.Domain.Entities;
@@ -22,6 +23,13 @@ public enum DeviceEventRejection
     EventTimeInvalid,
 }
 
+/// <summary>D-26: khoảng occurredAt chấp nhận quanh giờ server; ngoài khoảng → <c>EVENT_TIME_INVALID</c>.</summary>
+public sealed class DeviceEventTimeOptions
+{
+    public TimeSpan MaxFutureSkew { get; set; } = TimeSpan.FromMinutes(5);
+    public TimeSpan MaxAge { get; set; } = TimeSpan.FromDays(30);
+}
+
 public sealed record DeviceEventInput(string EventId, int? CompartmentSlot, string? EventType, DateTimeOffset? OccurredAt);
 
 public sealed record DeviceEventResult(
@@ -33,9 +41,13 @@ public sealed record DeviceEventResult(
 
 /// <summary>
 /// Nhận batch sự kiện thiết bị (P4-02, API_CONTRACT §9.3). Append-only, idempotent theo <c>UNIQUE (DeviceId, EventId)</c>;
-/// mỗi event hợp lệ được ghi độc lập nên phần tử lỗi không rollback phần tử khác. Không ghép dose (P4-03).
+/// mỗi event hợp lệ được ghi độc lập nên phần tử lỗi không rollback phần tử khác. Ghép dose qua <see cref="DeviceEventMatchingService"/> (P4-03, D-24).
 /// </summary>
-public sealed class DeviceEventIngestionService(AppDbContext db, IClock clock, DeviceEventMatchingService matching)
+public sealed class DeviceEventIngestionService(
+    AppDbContext db,
+    IClock clock,
+    DeviceEventMatchingService matching,
+    IOptions<DeviceEventTimeOptions> timeOptions)
 {
     /// <summary>Trả null nếu thiết bị chưa có chủ. Kết quả theo đúng thứ tự mảng đầu vào, một phần tử cho mỗi event.</summary>
     public async Task<IReadOnlyList<DeviceEventResult>?> IngestAsync(
@@ -61,7 +73,9 @@ public sealed class DeviceEventIngestionService(AppDbContext db, IClock clock, D
         var now = clock.UtcNow;
 
         // Xử lý theo occurredAt rồi eventId (không theo thứ tự mảng) để batch xáo cho cùng kết quả.
-        // [TBD-D26] Chưa chốt ngưỡng tương lai/quá cũ nên chưa từ chối theo khoảng thời gian; occurredAt giữ nguyên.
+        // occurredAt do thiết bị gửi không bị sửa; ngoài khoảng D-26 thì từ chối.
+        var earliest = now - timeOptions.Value.MaxAge;
+        var latest = now + timeOptions.Value.MaxFutureSkew;
         var ordered = events
             .Select((input, index) => (input, index))
             .OrderBy(x => x.input.OccurredAt ?? DateTimeOffset.MinValue)
@@ -69,7 +83,7 @@ public sealed class DeviceEventIngestionService(AppDbContext db, IClock clock, D
             .ThenBy(x => x.index);
         foreach (var (input, index) in ordered)
         {
-            var rejection = Validate(input, compartments, out var eventType, out var compartmentId);
+            var rejection = Validate(input, compartments, earliest, latest, out var eventType, out var compartmentId);
             if (rejection is not null)
             {
                 results[index] = new DeviceEventResult(input.EventId, DeviceEventResultStatus.Rejected, rejection);
@@ -136,6 +150,8 @@ public sealed class DeviceEventIngestionService(AppDbContext db, IClock clock, D
     private static DeviceEventRejection? Validate(
         DeviceEventInput input,
         IReadOnlyDictionary<int, Guid> compartments,
+        DateTimeOffset earliest,
+        DateTimeOffset latest,
         out DeviceEventType eventType,
         out Guid compartmentId)
     {
@@ -145,7 +161,7 @@ public sealed class DeviceEventIngestionService(AppDbContext db, IClock clock, D
             return DeviceEventRejection.EventTypeInvalid;
         }
 
-        if (input.OccurredAt is null)
+        if (input.OccurredAt is not { } occurredAt || occurredAt < earliest || occurredAt > latest)
         {
             return DeviceEventRejection.EventTimeInvalid;
         }

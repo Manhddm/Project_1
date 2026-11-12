@@ -1,6 +1,6 @@
 namespace SmartMedBox.Api.Contracts;
 
-// rtcTimeUtc/pendingEventCount nhận theo hợp đồng nhưng chưa dùng: chính sách lệch giờ là [TBD-D26].
+// rtcTimeUtc/pendingEventCount nhận theo hợp đồng nhưng chưa dùng: firmware tự chỉnh RTC theo serverTimeUtc (D-26).
 public sealed record HeartbeatRequest(string? FirmwareVersion, DateTimeOffset? RtcTimeUtc, int? PendingEventCount);
 
 public sealed record HeartbeatResponse(
