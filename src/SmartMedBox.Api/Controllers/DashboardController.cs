@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -55,12 +55,15 @@ public sealed class DashboardController(
     {
         if (!User.TryGetUserId(out var userId)) return Unauthorized();
 
-        var recipientId = await (from recipient in db.AlertRecipients
-                                 join alert in db.Alerts on recipient.AlertId equals alert.Id
-                                 join dose in db.DoseInstances on alert.DoseInstanceId equals dose.Id
-                                 where alert.Id == id && recipient.RecipientUserId == userId
-                                 select (Guid?)recipient.Id).SingleOrDefaultAsync(cancellationToken);
-        if (recipientId is null) return NotFoundProblem(ErrorCodes.AlertNotFound);
+        var target = await (from recipient in db.AlertRecipients
+                            join alert in db.Alerts on recipient.AlertId equals alert.Id
+                            join dose in db.DoseInstances on alert.DoseInstanceId equals dose.Id
+                            where alert.Id == id && recipient.RecipientUserId == userId
+                            select new { recipient.Id, dose.DeviceId }).SingleOrDefaultAsync(cancellationToken);
+        // D-24c: recipient who lost Read access to the box gets the same 404 as a non-recipient.
+        if (target is null || !await access.CanAsync(userId, target.DeviceId, DeviceOperation.Read, cancellationToken))
+            return NotFoundProblem(ErrorCodes.AlertNotFound);
+        var recipientId = target.Id;
 
         var readAt = clock.UtcNow;
         await db.AlertRecipients
@@ -81,7 +84,8 @@ public sealed class DashboardController(
         if (fromDate is not null && toDate is not null && fromDate > toDate) return ApiProblemResults.Validation(HttpContext, "from", "from phải nhỏ hơn hoặc bằng to.");
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var doses = await LoadDosesAsync(deviceId, fromDate?.ToDateTime(TimeOnly.MinValue) is { } start ? new DateTimeOffset(start, TimeSpan.Zero) : DateTimeOffset.MinValue, toDate?.ToDateTime(TimeOnly.MaxValue) is { } end ? new DateTimeOffset(end, TimeSpan.Zero) : DateTimeOffset.MaxValue, cancellationToken);
+        // §1.7: from/to are dates in the box display timezone; [from 00:00, to+1 00:00) local, as UTC instants.
+        var doses = await LoadDosesAsync(deviceId, fromDate is { } from ? LocalMidnightUtc(from) : DateTimeOffset.MinValue, toDate is { } to ? LocalMidnightUtc(to.AddDays(1)) : DateTimeOffset.MaxValue, cancellationToken);
         var filtered = status is null ? doses : doses.Where(x => x.Status == status).ToList();
         var total = filtered.Count;
         return Ok(new { items = filtered.OrderByDescending(x => x.ScheduledAt).Skip((page - 1) * pageSize).Take(pageSize), page, pageSize, total });
@@ -112,12 +116,15 @@ public sealed class DashboardController(
     private static DateOnly LocalDate(DateTimeOffset instant, string timeZoneId) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, TimeZoneInfo.FindSystemTimeZoneById(timeZoneId)).DateTime);
 
+    private static DateTimeOffset LocalMidnightUtc(DateOnly date) =>
+        new(TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(TimeOnly.MinValue), TimeZoneInfo.FindSystemTimeZoneById(DisplayTimeZoneId)), TimeSpan.Zero);
+
     private async Task<List<DoseDto>> LoadDosesAsync(Guid deviceId, DateTimeOffset fromInclusive, DateTimeOffset toExclusive, CancellationToken cancellationToken)
     {
         var rows = await (from dose in db.DoseInstances.AsNoTracking()
                           join schedule in db.MedicationSchedules.AsNoTracking() on dose.ScheduleId equals schedule.Id
                           join compartment in db.Compartments.AsNoTracking() on dose.CompartmentId equals compartment.Id
-                          where dose.DeviceId == deviceId && dose.ScheduledAt >= fromInclusive && dose.ScheduledAt <= toExclusive
+                          where dose.DeviceId == deviceId && dose.ScheduledAt >= fromInclusive && dose.ScheduledAt < toExclusive
                           select new { dose, schedule.TimeZoneId, compartment.SlotNumber }).ToListAsync(cancellationToken);
         var ids = rows.Select(x => x.dose.Id).ToArray();
         var items = await db.DoseItemSnapshots.AsNoTracking().Where(x => ids.Contains(x.DoseInstanceId)).ToListAsync(cancellationToken);

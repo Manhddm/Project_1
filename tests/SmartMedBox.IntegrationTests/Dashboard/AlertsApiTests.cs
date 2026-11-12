@@ -111,6 +111,29 @@ public sealed class AlertsApiTests(SqlServerDatabaseFixture fixture) : IClassFix
     }
 
     [Fact]
+    public async Task MarkRead_RecipientRevokedAfterAlertCreated_ReturnsAlertNotFoundAndKeepsReadAtNull()
+    {
+        var (setup, alert) = await SeedRevokedRecipientAlertAsync();
+        using var factory = CreateFactory(fixture, _clock);
+        using var revoked = await LoginWithCsrfAsync(factory, setup.RevokedRelative);
+
+        await AssertCodeAsync(await revoked.PostAsync($"/api/alerts/{alert}/read", null), HttpStatusCode.NotFound, "ALERT_NOT_FOUND");
+
+        await using var db = fixture.CreateContext();
+        Assert.Null(await db.AlertRecipients.Where(x => x.AlertId == alert && x.RecipientUserId == setup.RevokedRelative.Id).Select(x => x.ReadAt).SingleAsync());
+    }
+
+    [Fact]
+    public async Task List_RecipientRevokedAfterAlertCreated_ReturnsForbidden()
+    {
+        var (setup, _) = await SeedRevokedRecipientAlertAsync();
+        using var factory = CreateFactory(fixture, _clock);
+        using var revoked = await LoginWithCsrfAsync(factory, setup.RevokedRelative);
+
+        await AssertCodeAsync(await revoked.GetAsync($"/api/alerts?deviceId={setup.DeviceId}"), HttpStatusCode.Forbidden, "FORBIDDEN");
+    }
+
+    [Fact]
     public async Task MarkRead_WithoutCsrfToken_ReturnsCsrfInvalid()
     {
         var (setup, shared, _, _) = await SeedAlertsAsync();
@@ -133,6 +156,15 @@ public sealed class AlertsApiTests(SqlServerDatabaseFixture fixture) : IClassFix
         var shared = await SeedAlertAsync(fixture, dose, Now.AddMinutes(-10), setup.Owner.Id, setup.Relative.Id, setup.OtherRelative.Id);
         var ownerOnly = await SeedAlertAsync(fixture, olderDose, Now.AddMinutes(-70), setup.Owner.Id);
         return (setup, shared, ownerOnly, dose);
+    }
+
+    /// <summary>Alert whose recipients include the relative SeedAsync stores as Revoked (i.e. revoked after the alert was created).</summary>
+    private async Task<(DashboardSetup Setup, Guid Alert)> SeedRevokedRecipientAlertAsync()
+    {
+        var setup = await SeedAsync(fixture);
+        var schedule = await SeedScheduleAsync(fixture, setup.DeviceId, "Asia/Ho_Chi_Minh");
+        var dose = await SeedDoseAsync(fixture, schedule, Now.AddHours(-1), DoseStatus.Unknown);
+        return (setup, await SeedAlertAsync(fixture, dose, Now.AddMinutes(-10), setup.Owner.Id, setup.RevokedRelative.Id));
     }
 
     private static async Task<DateTimeOffset> MarkReadAsync(HttpClient client, Guid alertId)

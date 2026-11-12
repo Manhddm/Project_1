@@ -190,8 +190,8 @@ public sealed class DashboardApiTests(SqlServerDatabaseFixture fixture) : IClass
     {
         var setup = await SeedAsync(fixture);
         var schedule = await SeedScheduleAsync(fixture, setup.DeviceId, HoChiMinh);
-        var today = DateOnly.FromDateTime(Now.UtcDateTime);
-        var day = (int offset) => new DateTimeOffset(today.AddDays(offset).ToDateTime(new TimeOnly(1, 0)), TimeSpan.Zero);
+        var today = LocalDate(Now, HoChiMinh);
+        var day = (int offset) => At(HoChiMinh, today.AddDays(offset), 8);
         await SeedDoseAsync(fixture, schedule, day(-3), DoseStatus.Confirmed);
         var overdue = await SeedDoseAsync(fixture, schedule, day(-2), DoseStatus.Overdue);
         var unknown = await SeedDoseAsync(fixture, schedule, day(-1), DoseStatus.Unknown);
@@ -253,6 +253,33 @@ public sealed class DashboardApiTests(SqlServerDatabaseFixture fixture) : IClass
         Assert.Equal(Now.AddDays(-1).AddMinutes(3), dose.GetProperty("confirmedAt").GetDateTimeOffset());
         var item = Assert.Single(dose.GetProperty("items").EnumerateArray());
         Assert.Equal("Vitamin C", item.GetProperty("medicineName").GetString());
+    }
+
+    [Fact]
+    public async Task DoseHistory_FromToAreDisplayTimeZoneDates_IncludesDosesByHoChiMinhLocalDate()
+    {
+        var setup = await SeedAsync(fixture);
+        var schedule = await SeedScheduleAsync(fixture, setup.DeviceId, HoChiMinh);
+        // 2026-03-10 in HCM (UTC+7) = [2026-03-09T17:00Z, 2026-03-10T17:00Z).
+        var lastOfPrevious = await SeedDoseAsync(fixture, schedule, new DateTimeOffset(2026, 3, 9, 16, 59, 0, TimeSpan.Zero));
+        var firstOfDay = await SeedDoseAsync(fixture, schedule, new DateTimeOffset(2026, 3, 9, 17, 0, 0, TimeSpan.Zero));
+        var lastOfDay = await SeedDoseAsync(fixture, schedule, new DateTimeOffset(2026, 3, 10, 16, 59, 0, TimeSpan.Zero));
+        var nextDay = await SeedDoseAsync(fixture, schedule, new DateTimeOffset(2026, 3, 10, 17, 30, 0, TimeSpan.Zero)); // 00:30 on 03-11 HCM
+
+        using var factory = CreateFactory(fixture, _clock);
+        using var owner = await LoginWithCsrfAsync(factory, setup.Owner);
+        var url = $"/api/dose-history?deviceId={setup.DeviceId}";
+
+        Assert.Equal([lastOfDay, firstOfDay], await IdsAsync($"{url}&from=2026-03-10&to=2026-03-10"));
+        Assert.Equal([lastOfPrevious], await IdsAsync($"{url}&to=2026-03-09"));
+        Assert.Equal([nextDay], await IdsAsync($"{url}&from=2026-03-11"));
+        Assert.Equal([nextDay, lastOfDay, firstOfDay, lastOfPrevious], await IdsAsync($"{url}&from=2026-03-09&to=2026-03-11"));
+
+        async Task<List<Guid>> IdsAsync(string requestUrl)
+        {
+            using var body = await GetJsonAsync(owner, requestUrl);
+            return body.RootElement.GetProperty("items").EnumerateArray().Select(x => x.GetProperty("id").GetGuid()).ToList();
+        }
     }
 
     private static string[] ReadUrls(Guid deviceId) =>
