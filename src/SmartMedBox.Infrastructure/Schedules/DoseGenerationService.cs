@@ -23,6 +23,8 @@ public sealed class DoseGenerationService(AppDbContext db)
         var schedules = await db.MedicationSchedules
             .AsNoTracking()
             .Where(x => !x.IsDeleted)
+            // Hộp chưa ghép (chưa có chủ) không sinh dose.
+            .Where(x => db.Devices.Any(d => d.Id == x.DeviceId && d.OwnerUserId != null))
             .ToListAsync(cancellationToken);
         var scheduleIds = schedules.Select(x => x.Id).ToArray();
         var days = await db.ScheduleDays.AsNoTracking()
