@@ -1,6 +1,8 @@
 # API_CONTRACT.md — Hợp đồng API MVP Hộp thuốc thông minh
 
-> Phiên bản: 1.5 · Ngày: 2026-10-29 · Trạng thái: **Đã chốt cấu trúc cho Phase 1–2 (D-07, D-08, D-09, D-14); các TBD còn lại giữ nguyên nhãn tại §15**
+> Phiên bản: 1.6 · Ngày: 2026-11-12 · Trạng thái: **Đã chốt cấu trúc cho Phase 1–2 (D-07, D-08, D-09, D-14) và quyết định vận hành D-03, D-11, D-12, D-13, D-23, D-24, D-26 (§1.7); các TBD còn lại giữ nguyên nhãn tại §15**
+>
+> Bản 1.6 chốt D-03, D-11, D-12, D-13, D-23, D-24, D-26 (§1.7): phiên kết nối thiết bị, xác nhận muộn + `ResolvedAt`, `EmailDeliveryStatus.Cancelled`, chặn lịch chồng lấn, ngưỡng lệch giờ, retry email, SMTP.
 >
 > Bản 1.5 chốt D-14 (chính sách mật khẩu, TTL token, hạn lời mời, ngưỡng rate limit — §1.6), D-10 (timezone IANA theo từng lịch), D-22 (giữ nguyên dose đã sinh) và ghi nhận D-05 (provision bằng CLI nội bộ, không có endpoint admin). Bản 1.4.1 (P0-04): bổ sung mã `405 METHOD_NOT_ALLOWED` vào §1.3/§1.4/§14 để middleware trả ProblemDetails thống nhất cho lỗi framework. Bản 1.4 (P0-03): chốt D-07 (xác thực thiết bị), D-08 (pairing code + payload QR), D-09 (enum & `daysOfWeek`); chốt quy ước ProblemDetails và catalog lỗi. Bản 1.3 rà soát QA: bỏ tàn dư refresh token ở logout/reset-password sau khi chốt D-02.
 >
@@ -62,7 +64,7 @@
 - `POST /api/devices/pair` và `POST /api/relatives/invitations/accept` phải **rate-limit theo người gọi + IP/token** dù đã đăng nhập, trả `429 RATE_LIMITED` kèm `Retry-After`; ngưỡng theo **D-14 đã chốt** (§1.6). Đây là chống brute-force mã/token ngắn, không thay thế kiểm tra quyền.
 - Cookie session (D-02): cookie `HttpOnly`, `Secure`, `SameSite=Lax/Strict`, và mọi request ghi phải có CSRF token (antiforgery). Không dùng Bearer/JWT, không lưu token trong `localStorage`.
 - Pairing code, token và `DeviceApiKey` lưu dạng hash có **pepper/HMAC** phía server (không SHA-256 trần) để chống dò offline khi mã ngắn.
-- Endpoint thiết bị không tin đồng hồ thiết bị tuyệt đối: server dùng `occurredAt` để ghép nhưng trả `serverTimeUtc` để thiết bị chỉnh RTC; ngưỡng lệch theo **[TBD-D26]**.
+- Endpoint thiết bị không tin đồng hồ thiết bị tuyệt đối: server dùng `occurredAt` để ghép nhưng trả `serverTimeUtc` để thiết bị chỉnh RTC; ngưỡng lệch theo D-26 (§1.7).
 
 ### 1.3. Quy ước trạng thái HTTP
 
@@ -132,6 +134,22 @@
 - Rate limit không thay thế kiểm tra quyền và không được tiết lộ tài khoản/mã có tồn tại hay không.
 - Ngưỡng phải đọc từ cấu hình (`IOptions`), giá trị trên là mặc định; thay đổi ngưỡng không phải thay đổi hợp đồng.
 - `register`, `forgot-password`, `resend-verification`, `verify-email`, `reset-password` cũng phải có rate limit **[ĐỀ XUẤT]**; ngưỡng cụ thể chưa nằm trong hợp đồng, không được dùng để thay đổi hành vi đã mô tả ở trên.
+
+### 1.7. Quyết định vận hành — D-03, D-11, D-12, D-13, D-23, D-24, D-26 (chốt 2026-11-12)
+
+<a id="ops-decisions"></a>
+
+| Mã | Quyết định | Áp dụng |
+|---|---|---|
+| D-12 | Heartbeat mỗi **60 giây**; thiết bị **offline** khi quá **5 phút** không heartbeat. Server lưu **phiên kết nối** `DeviceConnectivityWindows(DeviceId, OnlineFrom, LastSeenAt)`: heartbeat kéo dài phiên hiện tại nếu cách lần trước ≤ 5 phút, ngược lại mở phiên mới. **Online tại `DeadlineAt`** = tồn tại phiên có `OnlineFrom ≤ DeadlineAt` và `LastSeenAt ≥ DeadlineAt − 5 phút`. Không phiên nào phủ → offline (kể cả khi thiết bị đã kết nối lại trước lúc job chạy). `isOnline` (dashboard, `/devices/mine`) = `LastSeenAt ≥ now − 5 phút`. | §7.1, §4.2, §10.4, P4-04, P5-02 |
+| D-24 | (a) `LidOpened` đúng ngăn có `ScheduledAt ≤ occurredAt ≤ DeadlineAt` đến **sau** khi dose đã `Overdue`/`Unknown` → chuyển `Confirmed`, `ConfirmedAt = occurredAt`. Mở sau `DeadlineAt` không bao giờ xác nhận. (b) Khi dose có cảnh báo được xác nhận muộn: set `Alerts.ResolvedAt` = thời điểm server xử lý event; **không** gửi email "đã giải quyết" trong MVP. (c) Worker kiểm tra người nhận còn quyền (chủ hộp, hoặc relative `Active`) ngay trước khi gửi; không còn quyền → delivery chuyển `Cancelled`, không gửi. Relative đã bị thu hồi không được đánh dấu đọc (`404 ALERT_NOT_FOUND`) và không còn thấy cảnh báo. (d) "Lần mở hợp lệ đầu tiên" tính theo **`occurredAt` sớm nhất**, kể cả khi event đó đến ở batch sau: `ConfirmedAt` được lùi về `occurredAt` sớm hơn; trạng thái vẫn là `Confirmed`. | §9.3, §10.4, §10.5, §7.3, §7.4 |
+| D-11 | Job sinh dose chạy mỗi **15 phút**, sinh trước **48 giờ**, sinh bù lùi tối đa **24 giờ**. Server ngừng quá 24 giờ thì các mốc cũ hơn không được sinh (ghi trong runbook). | P3-03 |
+| D-23 | Từ chối lịch mới/sửa lịch nếu **cùng ngăn**, khung ngày giao nhau, có ít nhất một thứ trùng, và cửa sổ `[timeOfDay, timeOfDay + gracePeriodMinutes]` giao nhau (inclusive, theo giờ địa phương của từng lịch; lịch khác timezone cùng ngăn so theo giờ UTC của mốc đầu tiên trong khung giao nhau) → `409 SCHEDULE_OVERLAP`. Lịch đã xóa mềm không tính. | §5.3, §5.4, §12 |
+| D-26 | `occurredAt > serverNow + 5 phút` → phần tử `Rejected EVENT_TIME_INVALID`. `occurredAt < serverNow − 30 ngày` → `Rejected EVENT_TIME_INVALID`. Trong khoảng đó event được lưu và ghép bình thường. Firmware chỉnh RTC khi lệch so với `serverTimeUtc` (trả trong mọi heartbeat) quá **2 giây**. | §9.1, §9.3, §12 |
+| D-13 | Tối đa **5 lần** gửi; lần kế tiếp sau **1 → 5 → 15 → 60 phút**; hết lượt → `Exhausted`. Lease claim (`LockedUntil`) **2 phút**. | P5-03 |
+| D-03 | Gửi qua **SMTP** (`System.Net.Mail`, không thêm package); host/port/tài khoản lấy từ cấu hình + user-secrets; môi trường dev giữ file sink. `ProviderMessageId` = header `Message-ID` do server sinh cho từng lần gửi. Nhà cung cấp SMTP cụ thể là cấu hình vận hành, không phải hợp đồng. | P5-03 |
+
+Hai điểm nhỏ cùng ngày: dashboard `alerts.latest` trả tối đa **5** cảnh báo mới nhất; `from`/`to` của `GET /api/dose-history` là ngày theo timezone hiển thị của hộp (`Asia/Ho_Chi_Minh`), so với `ScheduledAt` đổi sang timezone đó.
 
 ---
 
@@ -388,7 +406,7 @@ D-02 đã chốt cookie session; hợp đồng không có endpoint refresh/JWT v
 |---|---|
 | `404` | `DEVICE_NOT_FOUND` |
 
-> `isOnline` tính theo ngưỡng `LastSeenAt` — **[TBD-D12]**.
+> `isOnline` tính theo ngưỡng `LastSeenAt` — D-12: online khi `LastSeenAt ≥ now − 5 phút` (§1.7).
 
 ---
 
@@ -492,7 +510,7 @@ Chỉ trả lịch chưa xóa mềm. `deviceId` là **bắt buộc** để phân
 - **Auth:** Chủ hộp · Body giống `POST` (thay thế toàn bộ ngày/thuốc) · **Response:** `200 { "id": "…", "scheduleVersion": 6 }`
 - Tăng `ScheduleVersion` trong transaction; **không** sửa `DoseInstances`/`DoseItemSnapshots` đã sinh.
 - **D-22 đã chốt:** các `DoseInstance`/snapshot đã sinh (kể cả `Pending` trong tương lai) là **bất biến** — server giữ nguyên, không hủy/tái sinh khi lịch bị sửa/xóa; lịch mới chỉ áp dụng cho dose sinh **sau** thời điểm thay đổi.
-- **[TBD-D23]** Hai lịch chồng lấn cùng ngăn: chỉ chặn trùng tuyệt đối (cùng slot + giờ + khung ngày) **[ĐỀ XUẤT]**; chồng lấn một phần chưa chốt.
+- **D-23** Hai lịch chồng lấn cùng ngăn (cửa sổ `[giờ, +grace]` giao nhau, cùng thứ, khung ngày giao nhau) → `409 SCHEDULE_OVERLAP` (§1.7); áp cho cả POST và PUT, bỏ qua chính lịch đang sửa.
 - [ĐỀ XUẤT] Hỗ trợ `If-Match: <version>` để chống ghi đè đồng thời; không khớp → `409 SCHEDULE_VERSION_CONFLICT`.
 
 | Status | Code |
@@ -733,13 +751,14 @@ Query: `deviceId` (bắt buộc), `unreadOnly` (mặc định `false`), `page`, 
 ```
 
 - Chỉ cảnh báo của hộp người gọi có quyền; relative thấy cảnh báo của mình (nếu cần `readAt` riêng) — `readAt` thuộc `AlertRecipients` của **người gọi** **[ĐỀ XUẤT]**.
-- `resolvedAt` hiện là `null` và **chưa có quy tắc set** — chờ [TBD-D24]. Client không được suy diễn `resolvedAt = null` là "chưa uống".
+- `resolvedAt` set khi dose được xác nhận muộn (D-24b, §1.7). Client không được suy diễn `resolvedAt = null` là "chưa uống".
+- Relative đã bị thu hồi không còn thấy cảnh báo của hộp (403 theo §11).
 
 ### 7.4. `POST /api/alerts/{id}/read` **[ĐỀ XUẤT]**
 
 - **Auth:** Owner/Relative có cảnh báo · **Response:** `200 { "readAt": "2026-10-29T10:00:00Z" }`
 - Cập nhật `AlertRecipients.ReadAt` của người gọi; gọi lặp lại giữ nguyên thời điểm đầu **[ĐỀ XUẤT]**.
-- `403 FORBIDDEN`, `404 ALERT_NOT_FOUND`.
+- `404 ALERT_NOT_FOUND` khi người gọi không phải người nhận **hoặc** không còn quyền đọc hộp (D-24c).
 
 ---
 
@@ -836,7 +855,7 @@ X-Device-Api-Key: <khóa-thô-32-byte-base64url-lưu-trong-thiết-bị>
 
 - Khi `Unpaired`: `scheduleVersion` = `0`/`null`, không kèm dữ liệu lịch.
 - Server cập nhật `Devices.LastSeenAt` (dùng cho online/offline, D-12) **kể cả khi Unpaired**.
-- `serverTimeUtc` là nguồn chỉnh RTC; thiết bị không được coi `rtcTimeUtc` của mình là chân lý. Ngưỡng lệch và tần suất sync **[TBD-D26]**.
+- `serverTimeUtc` là nguồn chỉnh RTC; thiết bị không được coi `rtcTimeUtc` của mình là chân lý. Thiết bị chỉnh RTC khi lệch > 2 giây ở mỗi heartbeat (D-26, §1.7).
 - Idempotent; gọi lặp không tạo dữ liệu nghiệp vụ.
 
 ### 9.2. `GET /api/device/schedule-sync?version={int}`
@@ -940,11 +959,11 @@ X-Device-Api-Key: <khóa-thô-32-byte-base64url-lưu-trong-thiết-bị>
 
 - Server xử lý các event hợp lệ theo thứ tự `occurredAt` tăng dần, tie-break bằng `eventId` — **không** theo thứ tự trong mảng; kết quả phải giống nhau dù batch bị xáo.
 - Chỉ `LidOpened` được xét khớp; chỉ khi `ScheduledAt ≤ occurredAt ≤ DeadlineAt` và đúng ngăn của dose.
-- **Lần mở hợp lệ đầu tiên** xác nhận dose; các lần mở hợp lệ sau vẫn được lưu event nhưng không đổi trạng thái/`ConfirmedAt`.
+- **Lần mở hợp lệ đầu tiên theo `occurredAt`** xác nhận dose; lần mở hợp lệ có `occurredAt` muộn hơn được lưu nhưng không đổi gì; lần mở hợp lệ đến muộn với `occurredAt` sớm hơn chỉ lùi `ConfirmedAt` (D-24d).
 - Sai ngăn/mở sớm: lưu event, **không** xác nhận.
 - Nắp mở sẵn: firmware không gửi `LidOpened` hợp lệ cho tới khi có cạnh đóng→mở (HW-03); server không tự suy diễn.
-- Xác nhận muộn sau `Overdue`/`Unknown`: **[TBD-D24]** — hiện giữ nguyên trạng thái, không tự chuyển `Confirmed`.
-- Lệch giờ thiết bị: `occurredAt` ở tương lai quá ngưỡng bị `Rejected EVENT_TIME_INVALID`; event cũ vẫn được ghi và ghép nếu rơi đúng cửa sổ. Ngưỡng/thời hạn tối đa **[TBD-D26]**.
+- Xác nhận muộn sau `Overdue`/`Unknown`: event trong cửa sổ chuyển dose sang `Confirmed` và set `ResolvedAt` cho cảnh báo (D-24a/b).
+- Lệch giờ thiết bị: `occurredAt` > giờ server + 5 phút hoặc < giờ server − 30 ngày → `Rejected EVENT_TIME_INVALID`; event cũ trong hạn vẫn được ghi và ghép nếu rơi đúng cửa sổ (D-26).
 
 ---
 
@@ -983,7 +1002,7 @@ X-Device-Api-Key: <khóa-thô-32-byte-base64url-lưu-trong-thiết-bị>
 | `DeviceEventType` | `LidOpened`, `LidClosed` | Chỉ `LidOpened` được ghép dose |
 | `InvitationStatus` | `Pending`, `Accepted`, `Revoked`, `Expired` | Lưu `nvarchar(30)`; trả trong DTO lời mời dạng chuỗi |
 | `RelationshipStatus` | `Active`, `Revoked` | Lưu `nvarchar(30)`; trả trong DTO quan hệ dạng chuỗi |
-| `EmailDeliveryStatus` | `Pending`, `Sent`, `Failed`, `Exhausted` | Lưu `nvarchar(30)`; nội bộ, không xuất hiện trong DTO public |
+| `EmailDeliveryStatus` | `Pending`, `Sent`, `Failed`, `Exhausted`, `Cancelled` | Lưu `nvarchar(30)`; nội bộ, không xuất hiện trong DTO public. `Cancelled` thêm 2026-11-12 (D-24c): người nhận mất quyền trước khi gửi |
 | `AlertRecipient.Channel` | `Email` | `nvarchar(20)` + check constraint; MVP chỉ có email |
 | `ScheduleDay.DayOfWeek` | `1`–`7` | `1` = Thứ 2 … `7` = Chủ nhật (ISO-8601) |
 
@@ -1003,13 +1022,13 @@ X-Device-Api-Key: <khóa-thô-32-byte-base64url-lưu-trong-thiết-bị>
 
 | Từ | Đến | Điều kiện | Ghi chú |
 |---|---|---|---|
-| `Pending` | `Confirmed` | `LidOpened` đúng ngăn, `ScheduledAt ≤ occurredAt ≤ DeadlineAt`, là lần mở hợp lệ đầu tiên | `ConfirmedAt = occurredAt`; nghĩa "đã mở", **không** phải "đã uống" |
+| `Pending` | `Confirmed` | `LidOpened` đúng ngăn, `ScheduledAt ≤ occurredAt ≤ DeadlineAt` | `ConfirmedAt = occurredAt` sớm nhất (D-24d); nghĩa "đã mở", **không** phải "đã uống" |
 | `Pending` | `Overdue` | Qua `DeadlineAt` mà thiết bị được coi là **online tại deadline** và chưa có xác nhận | Tạo cảnh báo `OverdueUnconfirmed` |
 | `Pending` | `Unknown` | Qua `DeadlineAt` mà thiết bị **offline tại deadline** hoặc chưa từng thấy | Tạo cảnh báo `UnconfirmedOffline`; không kết luận "quên uống" |
-| `Confirmed` | — | Trạng thái cuối | Không đổi ngược |
-| `Overdue` / `Unknown` | `Confirmed`? | **[TBD-D24]** | Hợp đồng hiện **không** cho chuyển; event muộn vẫn được lưu |
+| `Confirmed` | `Confirmed` | Event hợp lệ khác có `occurredAt` sớm hơn `ConfirmedAt` | Chỉ lùi `ConfirmedAt` (D-24d); không đổi trạng thái |
+| `Overdue` / `Unknown` | `Confirmed` | Event hợp lệ trong cửa sổ đến muộn (D-24a) | `ConfirmedAt = occurredAt`; cảnh báo của dose được set `ResolvedAt` (D-24b) |
 
-- **Online tại deadline** nghĩa là `LastSeenAt >= DeadlineAt - ngưỡng offline`; không dùng thời điểm job chạy. `LastSeenAt = NULL` coi là offline.
+- **Online tại deadline** nghĩa là có phiên kết nối phủ `DeadlineAt` theo §1.7 (D-12); không dùng thời điểm job chạy hay `LastSeenAt` hiện tại. Chưa từng có phiên → offline.
 - Job đánh giá có thể chạy muộn; kết luận phải dựa trên dữ liệu tại `DeadlineAt`, không phải trạng thái hiện tại của thiết bị.
 - Không có trạng thái/field nào mang nghĩa "đã uống". `Confirmed` chỉ là "đã mở/đã xác nhận".
 - Sửa/xóa lịch không được đổi bất kỳ dòng nào ở trên; dose tương lai đã sinh **giữ nguyên** theo **D-22** (bất biến; không hủy/tái sinh).
@@ -1021,8 +1040,8 @@ X-Device-Api-Key: <khóa-thô-32-byte-base64url-lưu-trong-thiết-bị>
 - Một cảnh báo nghiệp vụ được xác định bởi `(DoseInstanceId, AlertType)` **[ĐỀ XUẤT]**; chạy job lặp không tạo bản ghi mới.
 - Tạo `Alerts` + toàn bộ `AlertRecipients` trong **một transaction**; người nhận = chủ hộp + mọi relative `Accepted` tại thời điểm đánh giá.
 - `AlertRecipients` là snapshot người nhận của cảnh báo; retry chỉ tạo `EmailDeliveries`, không thêm/bớt recipient.
-- Thu hồi quan hệ **trước** thời điểm đánh giá → không nhận cảnh báo. Thu hồi **sau** khi alert đã tạo nhưng trước khi gửi → **[TBD-D24]** (hiện không tự hủy delivery đã xếp hàng).
-- `ResolvedAt`: **[TBD-D24]** — trường có trong response mẫu nhưng chưa có quy tắc set; không tự set khi xác nhận muộn.
+- Thu hồi quan hệ **trước** thời điểm đánh giá → không nhận cảnh báo. Thu hồi **sau** khi alert đã tạo nhưng trước khi gửi → delivery `Cancelled`, không gửi (D-24c).
+- `ResolvedAt` = thời điểm server xác nhận muộn dose của cảnh báo (D-24b); `null` = chưa xác nhận, **không** có nghĩa "chưa uống".
 - `ReadAt` là trạng thái đọc **theo từng người nhận**, không phải trạng thái của alert.
 
 ---
@@ -1066,7 +1085,7 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 | `timeOfDay` | `HH:mm`, 00:00–23:59 | `VALIDATION_ERROR` |
 | `daysOfWeek` | 1–7, không trùng, ≥ 1 phần tử | `VALIDATION_ERROR` |
 | `startDate` / `endDate` | Ngày hợp lệ; `endDate` null hoặc ≥ `startDate` | `VALIDATION_ERROR` |
-| lịch trùng | Cùng `compartmentSlot` + `timeOfDay` + khung ngày giao nhau → từ chối **[ĐỀ XUẤT]**; chồng lấn một phần **[TBD-D23]** | `VALIDATION_ERROR` / `SCHEDULE_OVERLAP` **[nếu chốt]** |
+| lịch chồng lấn | Cùng `compartmentSlot`, khung ngày giao nhau, có thứ trùng, cửa sổ `[timeOfDay, +grace]` giao nhau → từ chối (D-23, §1.7) | `SCHEDULE_OVERLAP` (409) |
 | `gracePeriodMinutes` | Số nguyên 1–120 | `VALIDATION_ERROR` |
 | `timeZoneId` | IANA hợp lệ, kiểm tra bằng `TimeZoneInfo.FindSystemTimeZoneById` (.NET 6+ hỗ trợ IANA trên Windows lẫn Linux); bắt buộc, thuộc từng lịch; mặc định UI `Asia/Ho_Chi_Minh` — **D-10** | `SCHEDULE_INVALID_TIMEZONE` |
 | `items` | ≥ 1 phần tử | `VALIDATION_ERROR` |
@@ -1075,7 +1094,7 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 | `unit` | Bắt buộc, ≤ 50 | `VALIDATION_ERROR` |
 | `instructions` | ≤ 500 | `VALIDATION_ERROR` |
 | ảnh | ≤ 5 MB; JPEG/PNG/WebP theo magic bytes; giải mã được | `FILE_TOO_LARGE` / `FILE_TYPE_NOT_ALLOWED` / `IMAGE_INVALID` |
-| event batch | ≥ 1 và ≤ 100 **[ĐỀ XUẤT]**; `eventId` ≤ 100 ký tự; `eventType` hợp lệ; `occurredAt` không ở tương lai quá ngưỡng **[TBD-D26]**, không cũ hơn thời hạn lưu/ghép **[TBD-D26]** | `VALIDATION_ERROR` / `EVENT_TIME_INVALID` / `EVENT_TYPE_INVALID` |
+| event batch | ≥ 1 và ≤ 100 **[ĐỀ XUẤT]**; `eventId` ≤ 100 ký tự; `eventType` hợp lệ; `occurredAt` ≤ giờ server + 5 phút và ≥ giờ server − 30 ngày (D-26) | `VALIDATION_ERROR` / `EVENT_TIME_INVALID` / `EVENT_TYPE_INVALID` |
 | event trùng trong cùng batch | Cùng `eventId` xuất hiện nhiều lần: lần đầu xử lý, các lần sau trả `Duplicate` (không lỗi cả batch) | — |
 | `page` / `pageSize` | `page ≥ 1`; `1 ≤ pageSize ≤ 100` | `VALIDATION_ERROR` |
 | `from` / `to` | `from ≤ to` | `VALIDATION_ERROR` |
@@ -1136,7 +1155,7 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 | `RELATIONSHIP_NOT_FOUND` | 404 | Quan hệ không tồn tại |
 | `SCHEDULE_NOT_FOUND` | 404 | Lịch không tồn tại |
 | `SCHEDULE_INVALID_TIMEZONE` | 400 | Timezone không hợp lệ |
-| `SCHEDULE_OVERLAP` | 409 | Lịch trùng/chồng lấn cùng ngăn **[chỉ dùng nếu D-23 chốt quy tắc]** |
+| `SCHEDULE_OVERLAP` | 409 | Lịch chồng lấn cùng ngăn (D-23, chốt 2026-11-12) |
 | `SCHEDULE_VERSION_CONFLICT` | 409 | Xung đột phiên bản khi PUT **[nếu áp dụng]** |
 | `COMPARTMENT_INVALID` | 400 | Ngăn không hợp lệ/không thuộc hộp |
 | `EVENT_TIME_INVALID` | 200 (phần tử `Rejected`) | Thời điểm sự kiện không hợp lệ |
@@ -1165,16 +1184,16 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 |---|---|---|---|
 | D-01 | Web UI: Razor/MVC hay frontend riêng | Toàn bộ Web | **Đã chốt 2026-10-29: Razor/MVC trong `SmartMedBox.Api`** |
 | D-02 | Cookie session hay JWT + refresh | `/api/auth/*`, `/api/users/me` | **Đã chốt 2026-10-29: cookie session + CSRF; không có `/auth/refresh`, không có `RefreshTokens`** |
-| D-03 | Email provider | Toàn bộ luồng email | P5-03 |
+| D-03 | Email provider | Toàn bộ luồng email | **Đã chốt 2026-11-12: SMTP qua `System.Net.Mail`, cấu hình + user-secrets; dev giữ file sink (§1.7)** |
 | D-04 | Lưu file local hay blob | `/api/prescriptions/*` | P6-01 |
 | D-05 | Công cụ provision thiết bị | Không public API | **Đã chốt 2026-10-29: CLI nội bộ trong `tools/`; không có endpoint admin hay role admin (P2-02)** |
 | D-07 | Header xác thực thiết bị | `/api/device/*` | **Đã chốt 2026-10-29: `X-Device-Id` + `X-Device-Api-Key`; khóa 32 byte base64url; lưu HMAC+pepper; so sánh constant-time (P0-03)** |
 | D-08 | Định dạng pairing code, payload QR, hạn dùng | `/api/devices/pair` | **Đã chốt 2026-10-29: 8 ký tự Crockford Base32; TTL 15 phút; QR `{"v":1,"code":"<code>"}` (P0-03)** |
 | D-09 | Giá trị enum & `daysOfWeek` quy ước | Nhiều endpoint | **Đã chốt 2026-10-29: enum §10.2; `daysOfWeek` ISO-8601; `Channel = Email` (P0-03)** |
 | D-10 | Nguồn timezone; một hay nhiều timezone/hộp; dashboard "hôm nay" nhóm theo timezone nào | `/api/schedules`, dashboard | **Đã chốt 2026-10-29: `TimeZoneId` IANA theo từng lịch (mặc định `Asia/Ho_Chi_Minh`); một hộp có thể nhiều timezone; dashboard nhóm "hôm nay" theo từng dose (§7.1, §12)** |
-| D-11 | Horizon/tần suất sinh dose | `/api/dashboard`, history | P3-03 |
-| D-12 | Ngưỡng online/offline | `/api/devices/mine`, dashboard, alerts | P4-04 |
-| D-13 | Retry policy email | Không public API | P5-03 |
+| D-11 | Horizon/tần suất sinh dose | `/api/dashboard`, history | **Đã chốt 2026-11-12: mỗi 15 phút, sinh trước 48 giờ, sinh bù 24 giờ (§1.7)** |
+| D-12 | Ngưỡng online/offline | `/api/devices/mine`, dashboard, alerts | **Đã chốt 2026-11-12: heartbeat 60 giây, offline sau 5 phút, phiên kết nối `DeviceConnectivityWindows` (§1.7)** |
+| D-13 | Retry policy email | Không public API | **Đã chốt 2026-11-12: tối đa 5 lần, 1/5/15/60 phút, lease 2 phút (§1.7)** |
 | D-14 | Chính sách mật khẩu, TTL token, rate limit, hạn lời mời | Auth, invitations | **Đã chốt 2026-10-29: mật khẩu ≥ 8 chữ+số ≤ 128; token 24 giờ; lời mời 7 ngày; login 10/15 phút/IP, pair 5/phút/IP, invitation 10/ngày, accept 10/phút/IP (§1.6)** |
 | D-15 | Xác nhận muộn sau Overdue | Events batch, history | Đã gộp vào D-24 |
 | D-16 | Ảnh trùng & retention sau xóa | Prescriptions | P6-02, P6-04 |
@@ -1184,10 +1203,10 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 | D-20 | Hình thức quét QR trên Web | `/api/devices/pair` (UI) | P2-03, UI-02 |
 | D-21 | Độ bền queue sự kiện khi mất điện | Không public API | HW-03 |
 | D-22 | Sửa lịch & dose tương lai đã sinh; nhất quán với schedule-sync | `/api/schedules/*`, `/api/device/schedule-sync`, `/api/device/events/batch` | **Đã chốt 2026-10-29: giữ nguyên dose đã sinh (bất biến); lịch mới chỉ áp dụng cho dose sinh sau; horizon ngắn theo D-11** |
-| D-23 | Lịch trùng/chồng lấn cùng ngăn | `/api/schedules` | P3-02, P3-03 |
-| D-24 | Vòng đời cảnh báo, xác nhận muộn, `ResolvedAt`, recipient bị thu hồi sau khi tạo alert | `/api/device/events/batch`, `/api/alerts` | P3-05, P4-03, P5-02 |
+| D-23 | Lịch trùng/chồng lấn cùng ngăn | `/api/schedules` | **Đã chốt 2026-11-12: chặn chồng cửa sổ `[giờ, +grace]` cùng ngăn → `409 SCHEDULE_OVERLAP` (§1.7)** |
+| D-24 | Vòng đời cảnh báo, xác nhận muộn, `ResolvedAt`, recipient bị thu hồi sau khi tạo alert | `/api/device/events/batch`, `/api/alerts` | **Đã chốt 2026-11-12: xác nhận muộn trong cửa sổ → `Confirmed` + `ResolvedAt`; delivery `Cancelled` khi mất quyền; mở đầu tiên theo `occurredAt` (§1.7)** |
 | D-25 | Cách ESP32 nhận Wi‑Fi/server URL khi onboarding | Không public API | HW-01, HW-04 |
-| D-26 | Ngưỡng lệch giờ/RTC, event quá cũ/tương lai | `/api/device/*` | P4-02, HW-02, HW-04 |
+| D-26 | Ngưỡng lệch giờ/RTC, event quá cũ/tương lai | `/api/device/*` | **Đã chốt 2026-11-12: tương lai > 5 phút hoặc cũ > 30 ngày → `EVENT_TIME_INVALID`; firmware chỉnh RTC khi lệch > 2 giây (§1.7)** |
 | D-27 | Lưu trữ session server-side (in-memory/durable) và TTL session | `/api/auth/login`, `/api/auth/logout`, mọi endpoint người dùng | P7-03 (P1-03 đang dùng in-memory + TTL 8 giờ theo [ĐỀ XUẤT]) |
 
 ---
@@ -1202,6 +1221,6 @@ Nguyên tắc: kiểm tra quyền theo **hộp**, không theo `userId` client g�
 - `ScheduleVersion` là **cấp thiết bị**, tăng khi tạo/sửa/xóa mềm bất kỳ lịch; `timeZoneId` thuộc từng lịch (D-10).
 - Dose đã sinh là bất biến khi lịch thay đổi (D-22); không endpoint nào cho phép client hủy/tái sinh dose.
 - Đánh giá `Overdue`/`Unknown` dùng trạng thái kết nối tại `DeadlineAt`, không dùng thời điểm job chạy.
-- `resolvedAt` chưa có quy tắc set (D-24); client không được suy diễn từ `null`.
+- `resolvedAt` = thời điểm xác nhận muộn (D-24); client không được suy diễn từ `null`.
 - `occurredAt` của thiết bị là nguồn thời gian ghép; server trả `serverTimeUtc` để đồng bộ RTC (D-26).
 - Gửi email là at-least-once cho **cùng** một người trong tình huống crash hiếm; tuyệt đối không lặp sang người khác. Ghi rõ trong tài liệu vận hành.

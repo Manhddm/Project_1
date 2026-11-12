@@ -1,6 +1,8 @@
 # PLAN.md — Kế hoạch triển khai MVP Hộp thuốc thông minh
 
-> Phiên bản: 1.3 · Ngày: 2026-10-29 · Nguồn yêu cầu: `Hop-thuoc-thong-minh.html`
+> Phiên bản: 1.4 · Ngày: 2026-11-12 · Nguồn yêu cầu: `Hop-thuoc-thong-minh.html`
+>
+> Bản 1.4 chốt D-03, D-11, D-12, D-13, D-23, D-24, D-26 theo khuyến nghị đã duyệt ngày 2026-11-12 (chi tiết: API_CONTRACT §1.7).
 >
 > Bản 1.3 chốt D-05 (CLI nội bộ trong `tools/`), D-10 (timezone IANA theo từng lịch), D-14 (gói chính sách mật khẩu/token/rate limit/hạn lời mời) và D-22 (giữ nguyên dose đã sinh). Bản 1.2 chốt D-01/D-02 tại P0-01 và cập nhật phạm vi bảng dữ liệu (bỏ `RefreshTokens`).
 >
@@ -58,7 +60,7 @@ HTML đặt badge **"MỐC MVP"** tại mốc 4 nhưng danh sách 12 tiêu chí 
 |---|---|---|---|
 | **D-01** | Web UI dùng Razor/MVC trong project API hay frontend riêng (SPA) | **[ĐÃ CHỐT 2026-10-29]** — Razor/MVC trong `SmartMedBox.Api`, cùng origin, không SPA | P0-01, UI-* |
 | **D-02** | Xác thực người dùng: cookie session hay JWT + refresh token | **[ĐÃ CHỐT 2026-10-29]** — cookie session + CSRF; không dùng JWT, bỏ bảng `RefreshTokens` | P1-03 |
-| **D-03** | Nhà cung cấp email (SMTP nội bộ / dịch vụ) | **[TBD]** | P0-04, P5-03 |
+| **D-03** | Nhà cung cấp email (SMTP nội bộ / dịch vụ) | **[ĐÃ CHỐT 2026-11-12]** — SMTP qua `System.Net.Mail` (không thêm package), host/tài khoản trong cấu hình + user-secrets; dev giữ file sink; `ProviderMessageId` = `Message-ID` do server sinh (API_CONTRACT §1.7) | P0-04, P5-03 |
 | **D-04** | Backend lưu file ảnh (local private / blob storage) | **[TBD]** | P6-01 |
 | **D-05** | Công cụ provision thiết bị (CLI nội bộ hay endpoint admin) | **[ĐÃ CHỐT 2026-10-29]** — CLI nội bộ: project console trong `tools/`, chỉ dành cho vận hành/nhà máy; **không** có endpoint admin hay role admin | P2-02 |
 | **D-06** | Firmware ESP32 nằm trong repo này hay repo riêng; ai sở hữu | **[TBD]** | HW-* |
@@ -66,9 +68,9 @@ HTML đặt badge **"MỐC MVP"** tại mốc 4 nhưng danh sách 12 tiêu chí 
 | **D-08** | Định dạng/độ dài/hạn dùng pairing code và payload QR | **[ĐÃ CHỐT 2026-10-29]** — 8 ký tự Crockford Base32 (40 bit), TTL 15 phút, QR `{"v":1,"code":"<code>"}` | P2-02, P2-03 |
 | **D-09** | Giá trị enum: `DoseStatus`, `AlertType`, `DeviceEventType`, `PairingState` | **[ĐÃ CHỐT 2026-10-29]** — enum tại API_CONTRACT §10.2 + enum schema-only; `daysOfWeek` ISO-8601; `Channel = Email` | P0-03 |
 | **D-10** | Nguồn `TimeZoneId` cho lịch; một hay nhiều timezone trên một hộp; dashboard "hôm nay" nhóm theo timezone nào | **[ĐÃ CHỐT 2026-10-29]** — mỗi lịch chọn `TimeZoneId` IANA riêng (mặc định `Asia/Ho_Chi_Minh`); một hộp có thể có nhiều timezone; dashboard nhóm "hôm nay" **theo từng dose/lịch**, không dùng một timezone chung cho cả hộp | P3-01, P3-06 |
-| **D-11** | Tầm sinh trước (horizon) và tần suất job sinh dose | **[TBD]** | P3-03 |
-| **D-12** | Ngưỡng coi thiết bị offline (dựa trên `LastSeenAt`) | **[TBD]** | P4-04 |
-| **D-13** | Chính sách retry email (số lần, backoff) | **[TBD]** | P5-03 |
+| **D-11** | Tầm sinh trước (horizon) và tần suất job sinh dose | **[ĐÃ CHỐT 2026-11-12]** — job mỗi 15 phút, sinh trước 48 giờ, sinh bù lùi tối đa 24 giờ; server ngừng > 24 giờ thì mốc cũ hơn không sinh (runbook). Event offline về muộn không cần horizon dài vì dose do server sinh độc lập với kết nối thiết bị | P3-03 |
+| **D-12** | Ngưỡng coi thiết bị offline (dựa trên `LastSeenAt`) | **[ĐÃ CHỐT 2026-11-12]** — heartbeat 60 giây, offline sau 5 phút; bảng phiên kết nối `DeviceConnectivityWindows(DeviceId, OnlineFrom, LastSeenAt)` để biết trạng thái **tại `DeadlineAt`** kể cả khi job chạy sau lúc thiết bị kết nối lại (API_CONTRACT §1.7) | P4-04 |
+| **D-13** | Chính sách retry email (số lần, backoff) | **[ĐÃ CHỐT 2026-11-12]** — tối đa 5 lần, giãn cách 1/5/15/60 phút, sau đó `Exhausted`; lease 2 phút | P5-03 |
 | **D-14** | Chính sách mật khẩu, TTL token, ngưỡng rate limit, hạn lời mời | **[ĐÃ CHỐT 2026-10-29]** — "Gói đề xuất": mật khẩu ≥ 8 ký tự có chữ + số, ≤ 128; token xác minh/đặt lại TTL 24 giờ; lời mời hết hạn sau 7 ngày; rate limit: login 10 lần/15 phút/IP, pair 5 lần/phút/IP, invitation 10 lần/ngày, accept 10 lần/phút/IP; trả `429` + `Retry-After` | P1-02, P1-04, P1-06, P2-09 |
 | **D-15** | Xác nhận muộn sau khi đã `Overdue` xử lý thế nào | **[ĐÃ GỘP → D-24]** — giữ mã để truy vết | P3-05, P4-03 |
 | **D-16** | Upload ảnh trùng lặp và thời gian lưu file sau xóa mềm | **[TBD]** | P6-02, P6-04 |
@@ -78,10 +80,10 @@ HTML đặt badge **"MỐC MVP"** tại mốc 4 nhưng danh sách 12 tiêu chí 
 | **D-20** | Hình thức quét QR trên Web (camera, tải ảnh, hay nhập mã) | **[TBD]** — HTML chỉ nói "quét QR trên Web" | P2-03, UI-02 |
 | **D-21** | Độ bền hàng đợi sự kiện khi mất điện và giới hạn dung lượng queue | **[TBD]** — HTML không quy định | HW-03 |
 | **D-22** | Sửa/xóa lịch tác động thế nào đến các `DoseInstances`/snapshot **đã sinh nhưng chưa tới**, trong khi ESP32 đã tải lịch mới | **[ĐÃ CHỐT 2026-10-29]** — giữ nguyên dose: `DoseInstances`/snapshot đã sinh là bất biến, không hủy/tái sinh; lịch mới chỉ áp dụng cho các dose sinh **sau** thời điểm thay đổi; vì vậy horizon sinh dose phải ngắn (chốt cùng D-11) để giảm khoảng lệch giữa lịch trên thiết bị và dose phía server | P3-02, P3-03, P3-04, P4-03 |
-| **D-23** | Hai lịch cùng ngăn trùng giờ hoặc chồng lấn khung ngày | **[TBD]** — HTML không quy định; đề xuất chặn trùng tuyệt đối | P3-02, P3-03 |
-| **D-24** | Vòng đời cảnh báo & xác nhận muộn: `Overdue`/`Unknown` có được chuyển `Confirmed`; ý nghĩa `ResolvedAt`; người nhận đã tạo alert nhưng bị thu hồi trước khi gửi | **[TBD]** — HTML chỉ nói "quá hạn tạo cảnh báo" | P3-05, P4-03, P5-02 |
+| **D-23** | Hai lịch cùng ngăn trùng giờ hoặc chồng lấn khung ngày | **[ĐÃ CHỐT 2026-11-12]** — chặn khi cùng ngăn, khung ngày giao nhau, có thứ trùng và cửa sổ `[giờ, giờ + grace]` giao nhau → `409 SCHEDULE_OVERLAP` | P3-02, P3-03 |
+| **D-24** | Vòng đời cảnh báo & xác nhận muộn: `Overdue`/`Unknown` có được chuyển `Confirmed`; ý nghĩa `ResolvedAt`; người nhận đã tạo alert nhưng bị thu hồi trước khi gửi | **[ĐÃ CHỐT 2026-11-12]** — (a) event trong cửa sổ đến muộn chuyển `Overdue`/`Unknown` → `Confirmed`; (b) set `Alerts.ResolvedAt`, không gửi email giải quyết; (c) người nhận mất quyền trước khi gửi → delivery `Cancelled` (enum mới), relative đã thu hồi không đọc/không đánh dấu đọc được; (d) lần mở đầu tiên tính theo `occurredAt` sớm nhất, `ConfirmedAt` có thể lùi | P3-05, P4-03, P5-02 |
 | **D-25** | Cách ESP32 nhận cấu hình Wi‑Fi và base URL server khi onboarding | **[TBD]** — HTML nêu Wi‑Fi nhưng không nêu phương thức | HW-01, HW-04, P4-05 |
-| **D-26** | Chính sách đồng bộ RTC/clock skew: ngưỡng lệch chấp nhận, tần suất sync, xử lý event cũ/tương lai | **[TBD]** — HTML yêu cầu RTC nhưng không nêu dung sai | HW-02, HW-04, P4-02 |
+| **D-26** | Chính sách đồng bộ RTC/clock skew: ngưỡng lệch chấp nhận, tần suất sync, xử lý event cũ/tương lai | **[ĐÃ CHỐT 2026-11-12]** — `occurredAt` > giờ server + 5 phút hoặc < giờ server − 30 ngày → `Rejected EVENT_TIME_INVALID`; firmware chỉnh RTC khi lệch > 2 giây ở mỗi heartbeat (60 giây) | HW-02, HW-04, P4-02 |
 | **D-27** | Lưu trữ session đăng nhập phía server (in-memory hay durable) và TTL session | **[TBD]** — P1-03 dùng in-memory + TTL 8 giờ theo [ĐỀ XUẤT]; mất session khi restart, không chia sẻ giữa nhiều instance; phải chốt trước khi vận hành nhiều instance | P1-03, P7-03 |
 | **D-28** | Ngưỡng rate limit cho `register`, `forgot-password`, `resend-verification`, `verify-email`, `reset-password` | **[TBD]** — API_CONTRACT §1.6 yêu cầu có rate limit [ĐỀ XUẤT] nhưng chưa nêu ngưỡng; P1-06 chỉ áp `login` + chuẩn bị policy pair/invitation/accept | P1-06, P7-03 |
 | **D-29** | Quy trình phát pairing code: D-08 đặt TTL 15 phút nhưng P2-03/HW-05 nói nhãn QR in sẵn — mã in ở nhà máy sẽ hết hạn trước khi khách quét. Ai phát mã, lúc nào | **[TBD]** — P2-02 có lệnh CLI `issue-code` để phát mã mới ngay trước bàn giao | P2-02, P2-03, HW-05, UI-02 |
@@ -349,7 +351,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** `GET /api/schedules`, `GET /api/schedules/{id}`, `POST`, `PUT`, `DELETE` (xóa mềm); chỉ chủ; tăng `ScheduleVersion` trong transaction; audit; validation đầy đủ; chặn lịch trùng tuyệt đối (cùng ngăn + giờ + khung ngày) [ĐỀ XUẤT]; không sửa dose/snapshot đã sinh.
 - **Phụ thuộc:** P3-01, P1-05.
 - **Acceptance / DoD:** Test relative 403 cho POST/PUT/DELETE; owner OK; version tăng mỗi thay đổi (kể cả DELETE); xóa mềm không mất lịch sử; validate ngăn thuộc đúng thiết bị; PUT/DELETE không làm đổi dose/snapshot đã sinh.
-- **Ghi chú:** [ĐỀ XUẤT] Hỗ trợ `If-Match`/`expectedVersion` để chống ghi đè. **D-22 đã chốt:** giữ nguyên `DoseInstances`/snapshot đã sinh (kể cả `Pending` trong tương lai); lịch mới chỉ áp dụng cho dose sinh sau thời điểm thay đổi — không hủy/tái sinh. **[TBD-D23]** Chưa chốt lịch chồng lấn cùng ngăn.
+- **Ghi chú:** [ĐỀ XUẤT] Hỗ trợ `If-Match`/`expectedVersion` để chống ghi đè. **D-22 đã chốt:** giữ nguyên `DoseInstances`/snapshot đã sinh (kể cả `Pending` trong tương lai); lịch mới chỉ áp dụng cho dose sinh sau thời điểm thay đổi — không hủy/tái sinh. **D-23 đã chốt 2026-11-12:** chặn lịch chồng cửa sổ `[giờ, +grace]` cùng ngăn → `409 SCHEDULE_OVERLAP`.
 
 ### <a id="p3-03"></a>P3-03 · Sinh DoseInstances + snapshot
 
@@ -358,7 +360,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** Background job sinh `DoseInstances` (`ScheduledAt`, `DeadlineAt = +grace`, `Status=Pending`) + `DoseItemSnapshots` (copy thuốc + grace); sinh bù các mốc bị lỡ trong horizon khi job downtime; chống sinh trùng; horizon/cadence theo D-11.
 - **Phụ thuộc:** P3-01, P0-04.
 - **Acceptance / DoD:** Test: đúng ngày trong tuần, đúng timezone; không sinh trùng khi job chạy lặp/song song; chạy bù sau downtime không nhân đôi; sửa lịch sau đó không đổi dose/snapshot đã sinh (AC-10); `DeadlineAt` đúng.
-- **Ghi chú:** [TBD-D11] Sinh trước bao nhiêu ngày, chạy bao lâu/lần. Horizon phải đủ dài so với thời gian offline tối đa hỗ trợ, nếu không event offline về muộn sẽ không có dose để ghép; đồng thời **D-22 đã chốt giữ nguyên dose đã sinh** nên horizon càng dài thì khoảng lệch giữa lịch thiết bị và dose server càng lớn — D-11 phải chọn ngắn. [ĐỀ XUẤT] Unique `(ScheduleId, ScheduledAt)` để chống trùng.
+- **Ghi chú:** **D-11 đã chốt 2026-11-12:** job mỗi 15 phút, sinh trước 48 giờ, sinh bù lùi tối đa 24 giờ. Horizon ngắn phù hợp D-22; event offline về muộn vẫn ghép được vì dose do server sinh, không phụ thuộc kết nối thiết bị. [ĐỀ XUẤT] Unique `(ScheduleId, ScheduledAt)` để chống trùng.
 
 ### <a id="p3-04"></a>P3-04 · Đồng bộ lịch cho thiết bị
 
@@ -376,7 +378,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** Service chuyển `Pending → Confirmed | Overdue | Unknown`; quy tắc dựa trên event + deadline + kết nối **tại thời điểm `DeadlineAt`**; `Confirmed` là trạng thái cuối; `Overdue`/`Unknown` chưa có chuyển tiếp cho tới khi D-24 chốt; không nơi khác ghi trực tiếp `Status`.
 - **Phụ thuộc:** P3-03.
 - **Acceptance / DoD:** Unit test từng nhánh; test hết hạn có/không có kết nối; test mở đúng cửa sổ; không cho chuyển trạng thái không hợp lệ; job chạy muộn vẫn đánh giá theo trạng thái kết nối tại `DeadlineAt`, không theo lúc job chạy.
-- **Ghi chú:** **[TBD-D24]** Xác nhận muộn sau `Overdue`/`Unknown` và ý nghĩa `ResolvedAt` — cần chốt trước P4-03. Không tự thêm trạng thái mới.
+- **Ghi chú:** **D-24 đã chốt 2026-11-12:** `Overdue`/`Unknown` → `Confirmed` khi event trong cửa sổ đến muộn; `Confirmed` có thể lùi `ConfirmedAt` về `occurredAt` sớm hơn. Không thêm trạng thái mới.
 
 ### <a id="p3-06"></a>P3-06 · API dashboard & lịch sử
 
@@ -409,7 +411,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** `POST /api/device/events/batch`; validate slot thuộc thiết bị, `occurredAt` hợp lệ; trả `Accepted/Duplicate/Rejected` từng event; xử lý event hợp lệ ngay cả khi phần tử khác bị `Rejected`; transaction; audit [ĐỀ XUẤT]; kiểm tra lệch giờ theo D-26.
 - **Phụ thuộc:** P4-01, P2-06.
 - **Acceptance / DoD:** Gửi lại cùng batch 3 lần → chỉ một hiệu ứng nghiệp vụ (AC-05); batch lẫn hợp lệ/không hợp lệ xử lý đúng; batch bị xáo thứ tự vẫn cho cùng kết quả; thiết bị khác không ghi được vào hộp này; 401 khi khóa sai; event tương lai vượt ngưỡng bị `Rejected`.
-- **Ghi chú:** HTTP 200 với kết quả từng phần tử (không dùng 207) — chi tiết API_CONTRACT. **[TBD-D26]** Ngưỡng lệch giờ và chính sách event quá cũ; trước khi chốt, không tự "sửa" `occurredAt`.
+- **Ghi chú:** HTTP 200 với kết quả từng phần tử (không dùng 207) — chi tiết API_CONTRACT. **D-26 đã chốt 2026-11-12:** `occurredAt` > giờ server + 5 phút hoặc cũ hơn 30 ngày → `Rejected EVENT_TIME_INVALID`; không tự "sửa" `occurredAt`.
 
 ### <a id="p4-03"></a>P4-03 · Ghép sự kiện với lần uống
 
@@ -418,7 +420,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** Matching service: xử lý event theo thứ tự `occurredAt` rồi `eventId`; tìm dose cùng thiết bị/ngăn trong `[ScheduledAt, DeadlineAt]`; **lần mở hợp lệ đầu tiên** xác nhận (các lần sau vẫn lưu event); gắn `MatchedDoseInstanceId`; `Confirmed` + `ConfirmedAt`; event ngoài cửa sổ/sai ngăn chỉ lưu; xử lý event trùng; concurrency-safe.
 - **Phụ thuộc:** P4-02, P3-05.
 - **Acceptance / DoD:** Test AC-02 (đúng cửa sổ), AC-03 (mở sớm/sai ngăn không xác nhận); 2 event mở cùng lúc/khác thứ tự không tạo 2 lần xác nhận; batch trộn online/offline cho cùng kết quả; event quá hạn xử lý theo D-24.
-- **Ghi chú:** Server không tự tạo "cạnh" từ trạng thái nắp đang mở; firmware chịu trách nhiệm. Việc xác nhận muộn sau `Overdue`/`Unknown` **chưa được quyết định** (D-24) — mặc định không đổi trạng thái.
+- **Ghi chú:** Server không tự tạo "cạnh" từ trạng thái nắp đang mở; firmware chịu trách nhiệm. **D-24 đã chốt 2026-11-12:** event trong cửa sổ đến sau `Overdue`/`Unknown` chuyển `Confirmed` + set `ResolvedAt`; lần mở đầu tiên tính theo `occurredAt` sớm nhất.
 
 ### <a id="p4-04"></a>P4-04 · Trạng thái kết nối & Unknown
 
@@ -427,13 +429,13 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** Xác định online/offline theo `LastSeenAt`; khi đánh giá một dose: online nếu `LastSeenAt >= DeadlineAt - ngưỡng`, chưa từng thấy thiết bị = offline; **không dùng thời điểm job chạy**; dose chuyển `Unknown` khi hết hạn mà thiếu dữ liệu; cờ kết nối trong dashboard; nội dung "không thể xác nhận".
 - **Phụ thuộc:** P3-05, P2-07, P4-03.
 - **Acceptance / DoD:** Test AC-06: offline tại deadline → `Unknown`, không `Overdue`/không "quên uống"; online tại deadline → `Overdue`; job chạy muộn sau khi thiết bị đã reconnect vẫn không đổi kết luận tại deadline; ngưỡng cấu hình; khi thiết bị gửi lại sự kiện muộn, hiển thị đúng theo D-24.
-- **Ghi chú:** [TBD-D12] Ngưỡng, ví dụ 2–3 chu kỳ heartbeat — cần chốt. `LastSeenAt` NULL (chưa từng online) xử lý như offline.
+- **Ghi chú:** **D-12 đã chốt 2026-11-12:** heartbeat 60 giây, offline sau 5 phút; trạng thái tại `DeadlineAt` lấy từ bảng phiên kết nối `DeviceConnectivityWindows`, không từ `LastSeenAt` hiện tại. Chưa từng có phiên xử lý như offline.
 
 ### <a id="p4-05"></a>P4-05 · Đặc tả hợp đồng firmware
 
 - **Mục tiêu:** Đảm bảo firmware và server hiểu giống nhau về sự kiện, lịch, retry.
 - **Đầu vào:** P0-03; API_CONTRACT §Device; HTML §Offline.
-- **Đầu ra:** Tài liệu: sơ đồ gọi API; `EventId` sinh ổn định; hàng đợi bền khi mất điện [TBD-D21]; batch + backoff; RTC sync và dung sai lệch giờ [TBD-D26]; quy tắc cạnh đóng→mở và nắp-mở-sẵn (kể cả trạng thái nắp lúc khởi động lại); áp dụng lịch theo version; định dạng thời gian UTC; quy trình cấu hình Wi‑Fi/server URL [TBD-D25].
+- **Đầu ra:** Tài liệu: sơ đồ gọi API; `EventId` sinh ổn định; hàng đợi bền khi mất điện [TBD-D21]; batch + backoff; RTC sync và dung sai lệch giờ (D-26: chỉnh RTC khi lệch > 2 giây); quy tắc cạnh đóng→mở và nắp-mở-sẵn (kể cả trạng thái nắp lúc khởi động lại); áp dụng lịch theo version; định dạng thời gian UTC; quy trình cấu hình Wi‑Fi/server URL [TBD-D25].
 - **Phụ thuộc:** P0-03; cập nhật sau P3-04/P4-02.
 - **Acceptance / DoD:** Review chéo với API_CONTRACT; danh sách ca kiểm thử bench + simulator; bàn giao cho track firmware.
 - **Ghi chú:** Nội dung tài liệu không thay đổi hợp đồng API; nếu cần đổi, quay lại P0-03.
@@ -460,7 +462,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** Background job: quét dose hết hạn → tạo `Alerts` + `AlertRecipients` trong **một transaction** cho chủ và mọi relative `Accepted` tại thời điểm đánh giá; online → quá hạn chưa xác nhận; offline → không thể xác nhận; chống chạy trùng; không block request; không tự set `ResolvedAt` khi chưa có D-24.
 - **Phụ thuộc:** P5-01, P3-05, P4-04, P2-08.
 - **Acceptance / DoD:** Test đủ người nhận (AC-09); chạy job lặp/song song không nhân đôi alert/recipient; không cảnh báo cho dose đã `Confirmed`; offline message đúng; relative bị revoke **trước** thời điểm đánh giá không nhận; alert + recipients luôn cùng tồn tại hoặc cùng rollback.
-- **Ghi chú:** [TBD-D09] Có cảnh báo cho `Unknown` hay chỉ email? HTML: cảnh báo "không thể xác nhận" → AlertType riêng. **[TBD-D24]** Người nhận bị thu hồi sau khi alert đã tạo nhưng trước khi gửi, và việc resolve alert khi có xác nhận muộn — chưa chốt.
+- **Ghi chú:** [TBD-D09] Có cảnh báo cho `Unknown` hay chỉ email? HTML: cảnh báo "không thể xác nhận" → AlertType riêng. **D-24 đã chốt 2026-11-12:** người nhận mất quyền trước khi gửi → delivery `Cancelled`; xác nhận muộn set `ResolvedAt`, không gửi email giải quyết.
 
 ### <a id="p5-03"></a>P5-03 · Worker gửi email & retry độc lập
 
@@ -469,7 +471,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** Worker xử lý `EmailDeliveries`: claim nguyên tử bằng `LockedUntil` (an toàn đa instance), attempt/status, `NextAttemptAt`, `SentAt`, `ProviderMessageId`; backoff theo D-13; cô lập lỗi từng recipient; không gửi lại recipient đã `Sent`; tối đa N lần → `Exhausted`.
 - **Phụ thuộc:** P5-01, P0-04.
 - **Acceptance / DoD:** Test một địa chỉ lỗi không ảnh hưởng người khác; retry không gửi trùng người đã nhận; hai worker chạy song song không cùng claim một delivery; max attempts → trạng thái cuối; provider lỗi không crash worker.
-- **Ghi chú:** [TBD-D03, D-13] Provider và chính sách retry. Dùng `ProviderMessageId`/idempotency key nếu provider hỗ trợ. Gửi email là **at-least-once**: crash sau khi provider nhận nhưng trước khi lưu `Sent` có thể gửi lặp cho **cùng** người; nghiêm cấm lặp sang người khác. Ghi rõ giới hạn này trong runbook.
+- **Ghi chú:** **D-03, D-13 đã chốt 2026-11-12:** SMTP qua `System.Net.Mail`; tối đa 5 lần, 1/5/15/60 phút, lease 2 phút. `ProviderMessageId` = `Message-ID` do server sinh. Gửi email là **at-least-once**: crash sau khi provider nhận nhưng trước khi lưu `Sent` có thể gửi lặp cho **cùng** người; nghiêm cấm lặp sang người khác. Ghi rõ giới hạn này trong runbook.
 
 ### <a id="p5-04"></a>P5-04 · Mẫu email & nội dung bắt buộc
 
@@ -487,7 +489,7 @@ UI-01 ─▶ UI-02 ─▶ UI-03 ─▶ UI-04 ─▶ UI-05 ─▶ UI-06 ─▶ UI
 - **Đầu ra:** `GET /api/alerts`, `POST /api/alerts/{id}/read` [ĐỀ XUẤT dùng `ReadAt`]; lọc theo hộp, phân trang, unread count.
 - **Phụ thuộc:** P5-01, P5-02, P1-05.
 - **Acceptance / DoD:** Test owner/relative xem cảnh báo hộp mình; người ngoài 403; mark read chỉ ảnh hưởng người dùng hiện tại; không trả recipient người khác ngoài phạm vi; `resolvedAt` chỉ trả khi D-24 định nghĩa.
-- **Ghi chú:** `ReadAt` nằm trên `AlertRecipients`; cần xác nhận endpoint mark-read (HTML chỉ có trường dữ liệu). **[TBD-D24]** Ý nghĩa `ResolvedAt` — hiện chỉ là trường ví dụ, chưa có quy tắc set.
+- **Ghi chú:** `ReadAt` nằm trên `AlertRecipients`; endpoint mark-read theo API_CONTRACT §7.4. **D-24 đã chốt 2026-11-12:** `ResolvedAt` = thời điểm xác nhận muộn; relative đã bị thu hồi không đọc/không đánh dấu đọc được.
 
 ---
 

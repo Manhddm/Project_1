@@ -1,6 +1,8 @@
 # AGENTS.md — Hộp thuốc thông minh (MVP)
 
-> Phiên bản: 1.3 · Ngày: 2026-10-29 · Trạng thái: **Đang triển khai (P0-01, P0-02, P0-03 DONE)**
+> Phiên bản: 1.4 · Ngày: 2026-11-12 · Trạng thái: **Đang triển khai**
+>
+> Bản 1.4 chốt D-03, D-11, D-12, D-13, D-23, D-24, D-26 (chi tiết [API_CONTRACT.md](API_CONTRACT.md) §1.7); cập nhật §3.1, §3.3, §4.1, §4.2, §4.4.
 >
 > Bản 1.3 chốt D-07 (header/khóa thiết bị), D-08 (pairing code + QR) và D-09 (enum) tại P0-03; cập nhật §4.5, §7. Bản 1.2 chốt D-01 (Razor trong project Api) và D-02 (cookie session + CSRF); cập nhật cấu trúc `src/` + `tests/`.
 >
@@ -82,7 +84,7 @@ Các ý tưởng trên chỉ được ghi nhận, **không được đưa vào c
 | CSDL | SQL Server | Quan hệ, trạng thái, lịch sử |
 | Web UI | Razor/MVC trong `SmartMedBox.Api` | **D-01 đã chốt (2026-10-29)** — một project, cùng origin với API |
 | Xác thực người dùng | Cookie session + CSRF | **D-02 đã chốt (2026-10-29)** — không dùng JWT, không có bảng `RefreshTokens` |
-| Email | Provider **[TBD-D03]** (SMTP/ dịch vụ) | Trừu tượng hóa `IEmailSender`, có dev sink |
+| Email | SMTP qua `System.Net.Mail` — **D-03 đã chốt (2026-11-12)** | Trừu tượng hóa `IEmailSender`, có dev sink; không thêm package |
 | Lưu file ảnh | Vùng private ngoài CSDL (**[TBD-D04]** local disk/blob) | CSDL chỉ giữ metadata + storage key |
 
 ### 3.2. Kiến trúc logic
@@ -108,7 +110,7 @@ Quy tắc:
 - **Append-only**: `DeviceEvents`, `DoseInstances`, `Alerts`, `AlertRecipients`, `EmailDeliveries`, `AuditLogs` — không sửa/xóa vật lý để "đồng bộ theo lịch mới".
 - **Snapshot**: khi sinh `DoseInstances` phải sao chép `GracePeriodMinutes` và toàn bộ thuốc vào `DoseItemSnapshots`. Sửa/xóa lịch sau đó **không** được làm đổi lịch sử đã sinh.
 - **Idempotency**: `UNIQUE (DeviceId, EventId)`; pairing code dùng một lần; token xác minh/đặt lại mật khẩu dùng một lần; `UNIQUE (AlertId, RecipientUserId, Channel)`; một alert nghiệp vụ cho mỗi `(DoseInstanceId, AlertType)`; `UNIQUE (AlertRecipientId, AttemptNumber)` cho từng lần gửi email.
-- **Đánh giá online/offline**: khi một dose hết hạn, dùng trạng thái kết nối **tại `DeadlineAt`** (`LastSeenAt >= DeadlineAt - ngưỡng`), không dùng thời điểm job chạy. `LastSeenAt = NULL` = offline/không thể xác nhận.
+- **Đánh giá online/offline** (D-12): heartbeat 60 giây, offline sau 5 phút. Khi một dose hết hạn, dùng trạng thái kết nối **tại `DeadlineAt`** lấy từ phiên kết nối `DeviceConnectivityWindows` (có phiên với `OnlineFrom ≤ DeadlineAt` và `LastSeenAt ≥ DeadlineAt − 5 phút`), không dùng thời điểm job chạy hay `LastSeenAt` hiện tại. Không có phiên phủ = offline/không thể xác nhận.
 - **Thời gian**: mọi thời điểm thực tế lưu `datetimeoffset` chuẩn hóa UTC; lịch giữ `TimeOfDay`, `StartDate/EndDate`, `TimeZoneId` **của từng lịch** để sinh dose đúng giờ địa phương. `ScheduleVersion` là cấp thiết bị và tăng khi tạo/sửa/xóa mềm lịch.
 - **Xóa mềm** cho lịch, ảnh, dữ liệu cấu hình (`IsDeleted`/`DeletedAt`); không xóa vật lý sự kiện/lần uống/cảnh báo/log; xóa tài khoản thì ẩn danh theo chính sách.
 - **File ngoài CSDL**: `PrescriptionImages` chỉ metadata + storage key.
@@ -122,11 +124,11 @@ Quy tắc:
 ### 4.1. Xác nhận mở nắp
 
 - Chỉ chấp nhận cạnh chuyển **đóng → mở** của **đúng ngăn** trong khoảng `[ScheduledAt, DeadlineAt]` (`DeadlineAt = ScheduledAt + GracePeriodMinutes`).
-- Nếu có nhiều lần mở hợp lệ, **lần mở hợp lệ đầu tiên** xác nhận; các lần sau vẫn lưu event nhưng không đổi `ConfirmedAt`.
+- Nếu có nhiều lần mở hợp lệ, lần mở có **`occurredAt` sớm nhất** xác nhận, kể cả khi event đó đến ở batch sau (D-24d): `ConfirmedAt` có thể lùi về thời điểm sớm hơn; các lần mở muộn hơn vẫn lưu event nhưng không đổi gì.
 - Mở sai ngăn hoặc mở trước giờ: ghi sự kiện nhưng **không** xác nhận lần uống.
 - Nắp đã mở sẵn trước giờ: **không** tự xác nhận; phải đóng rồi mở lại (trách nhiệm phát hiện cạnh nằm ở firmware; Server không được "đoán"). Trạng thái nắp lúc khởi động lại phải được firmware khởi tạo đúng để không sinh cạnh giả.
 - Trạng thái lần uống: `Pending` → `Confirmed` | `Overdue` | `Unknown` (xem [API_CONTRACT.md](API_CONTRACT.md) §10.4). `Confirmed` chỉ có nghĩa "nắp đúng ngăn đã mở trong cửa sổ", **không** phải "đã uống".
-- Xác nhận muộn sau `Overdue`/`Unknown` và ý nghĩa `ResolvedAt` là **[TBD-D24]**: mặc định **không** đổi trạng thái, không tự set `ResolvedAt`.
+- Xác nhận muộn (D-24a/b): event mở đúng ngăn trong cửa sổ đến sau khi dose đã `Overdue`/`Unknown` → chuyển `Confirmed` và set `Alerts.ResolvedAt`; không gửi email "đã giải quyết". Mở sau `DeadlineAt` không bao giờ xác nhận.
 - Không thêm trạng thái mới hoặc đổi nghĩa trạng thái khi chưa cập nhật đồng bộ cả 4 tài liệu và được duyệt.
 
 ### 4.2. Offline
@@ -135,7 +137,7 @@ Quy tắc:
 - Server chống trùng bằng `(DeviceId, EventId)`; gửi lại nhiều lần chỉ tạo một kết quả nghiệp vụ. Xử lý event theo `occurredAt` tăng dần, không theo thứ tự mảng.
 - Khi hết hạn chờ mà thiết bị không đủ dữ liệu trực tuyến: trạng thái `Unknown`, cảnh báo dùng nội dung "không thể xác nhận do mất kết nối". Kết luận dựa trên kết nối tại `DeadlineAt`, không phải lúc job chạy.
 - Đồng bộ lịch có **phiên bản cấp thiết bị** (`ScheduleVersion`); thiết bị chỉ thay lịch cục bộ khi nhận đủ gói hợp lệ và giữ lịch cũ nếu tải/parse lỗi.
-- Heartbeat trả `Unpaired`/`Paired`, `serverTimeUtc` (chỉnh RTC) và thông tin đồng bộ cần thiết. Dung sai lệch giờ **[TBD-D26]**; không tự sửa `occurredAt` do thiết bị gửi.
+- Heartbeat (60 giây) trả `Unpaired`/`Paired`, `serverTimeUtc` (chỉnh RTC khi lệch > 2 giây) và thông tin đồng bộ cần thiết. D-26: `occurredAt` > giờ server + 5 phút hoặc cũ hơn 30 ngày bị từ chối `EVENT_TIME_INVALID`; không tự sửa `occurredAt` do thiết bị gửi.
 - Wi‑Fi credentials và server base URL được cấu hình theo quy trình **[TBD-D25]**; không tự thêm màn hình cấu hình thiết bị vào Web khi chưa chốt.
 
 ### 4.3. Phân quyền
@@ -153,7 +155,8 @@ Quy tắc:
 - Gửi cho chủ + mọi người thân `Accepted` tại thời điểm đánh giá.
 - Chạy nền, không block request; retry độc lập từng người; chống gửi trùng ở mức nghiệp vụ.
 - Tạo `Alerts` + `AlertRecipients` trong một transaction; retry chỉ tạo `EmailDeliveries`, không thay đổi người nhận.
-- Worker phải claim delivery nguyên tử (lease/`LockedUntil`), an toàn khi nhiều instance; tối đa N lần rồi `Exhausted`.
+- Worker phải claim delivery nguyên tử (lease/`LockedUntil` 2 phút), an toàn khi nhiều instance; tối đa 5 lần (1/5/15/60 phút) rồi `Exhausted` (D-13).
+- Ngay trước khi gửi, kiểm tra người nhận còn quyền (chủ hộp hoặc relative `Active`); không còn → delivery `Cancelled`, không gửi (D-24c).
 - Gửi email là at-least-once: crash sau khi provider nhận có thể gửi lặp cho **cùng** một người; tuyệt đối không lặp sang người khác. Dùng `ProviderMessageId`/idempotency key nếu có.
 - Nội dung phải phân biệt: quá hạn có dữ liệu trực tuyến vs không thể xác nhận do mất kết nối.
 

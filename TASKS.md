@@ -78,10 +78,13 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 
 **Cổng quyết định (chặn DONE, không chặn code thăm dò):**
 
-- [ ] **D-23** chốt trước khi `P3-02`/`P3-03`/`P3-04` được đánh `DONE` (D-22 đã chốt 2026-10-29: giữ nguyên dose đã sinh).
-- [ ] **D-24** chốt trước khi `P3-05`/`P4-03`/`P5-02`/`P5-05` được đánh `DONE`.
-- [ ] **D-25 + D-26** chốt trước khi `HW-04`/`P4-05` được đánh `DONE`.
-- [ ] **D-11 + D-12** chốt trước khi `P3-03`/`P4-04`/`P5-02` được đánh `DONE`.
+- [x] **D-23** chốt trước khi `P3-02`/`P3-03`/`P3-04` được đánh `DONE` (D-22 đã chốt 2026-10-29: giữ nguyên dose đã sinh). _Chốt 2026-11-12._
+- [x] **D-24** chốt trước khi `P3-05`/`P4-03`/`P5-02`/`P5-05` được đánh `DONE`. _Chốt 2026-11-12._
+- [ ] **D-25 + D-26** chốt trước khi `HW-04`/`P4-05` được đánh `DONE`. _D-26 chốt 2026-11-12; D-25 còn TBD._
+- [x] **D-11 + D-12** chốt trước khi `P3-03`/`P4-04`/`P5-02` được đánh `DONE`. _Chốt 2026-11-12._
+- [x] **D-03 + D-13** chốt trước khi `P5-03` được đánh `DONE`. _Chốt 2026-11-12._
+
+> Chi tiết 7 quyết định chốt 2026-11-12: [API_CONTRACT.md §1.7](API_CONTRACT.md#ops-decisions). Code chưa áp dụng các quyết định này tại thời điểm chốt — xem các task tương ứng.
 
 ---
 
