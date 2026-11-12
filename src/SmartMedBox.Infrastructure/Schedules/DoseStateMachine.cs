@@ -16,6 +16,8 @@ public enum DoseTransitionOutcome
 public enum DoseTransitionReason
 {
     LidOpenedInWindow,
+    LateConfirmation,
+    EarlierOpenInWindow,
     AlreadyConfirmed,
     DoseAlreadyResolved,
     WrongCompartment,
@@ -42,16 +44,6 @@ public sealed class DoseStateMachine(IClock clock)
         ArgumentNullException.ThrowIfNull(dose);
 
         var previousStatus = dose.Status;
-        if (dose.Status == DoseStatus.Confirmed)
-        {
-            return Result(dose, previousStatus, DoseTransitionOutcome.NoChange, DoseTransitionReason.AlreadyConfirmed);
-        }
-
-        if (dose.Status != DoseStatus.Pending)
-        {
-            return Result(dose, previousStatus, DoseTransitionOutcome.Ignored, DoseTransitionReason.DoseAlreadyResolved);
-        }
-
         if (dose.CompartmentId != compartmentId)
         {
             return Result(dose, previousStatus, DoseTransitionOutcome.Ignored, DoseTransitionReason.WrongCompartment);
@@ -62,9 +54,25 @@ public sealed class DoseStateMachine(IClock clock)
             return Result(dose, previousStatus, DoseTransitionOutcome.Ignored, DoseTransitionReason.OutsideConfirmationWindow);
         }
 
+        // D-24d: lần mở hợp lệ đầu tiên tính theo occurredAt sớm nhất, kể cả khi đến ở batch sau.
+        if (dose.Status == DoseStatus.Confirmed)
+        {
+            if (dose.ConfirmedAt is { } confirmedAt && confirmedAt <= occurredAt)
+            {
+                return Result(dose, previousStatus, DoseTransitionOutcome.NoChange, DoseTransitionReason.AlreadyConfirmed);
+            }
+
+            dose.ConfirmedAt = occurredAt;
+            return Result(dose, previousStatus, DoseTransitionOutcome.Confirmed, DoseTransitionReason.EarlierOpenInWindow);
+        }
+
+        // D-24a: Overdue/Unknown được xác nhận muộn khi event trong cửa sổ đến sau khi đã đánh giá hạn.
+        var reason = dose.Status == DoseStatus.Pending
+            ? DoseTransitionReason.LidOpenedInWindow
+            : DoseTransitionReason.LateConfirmation;
         dose.Status = DoseStatus.Confirmed;
         dose.ConfirmedAt = occurredAt;
-        return Result(dose, previousStatus, DoseTransitionOutcome.Confirmed, DoseTransitionReason.LidOpenedInWindow);
+        return Result(dose, previousStatus, DoseTransitionOutcome.Confirmed, reason);
     }
 
     /// <param name="onlineAtDeadline">From <c>DeviceConnectivityService.WasOnlineAtAsync</c> (D-12).</param>
