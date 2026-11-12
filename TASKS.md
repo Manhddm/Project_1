@@ -135,7 +135,7 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 | [P3-02](PLAN.md#p3-02) | CRUD lịch & ScheduleVersion | `IN_PROGRESS` | P3-01, P1-05 | `SchedulesApiTests` 20/20 (owner CRUD + version 1→4; relative GET 200 / ghi 403; người ngoài 403; POST không có hộp 409 `DEVICE_NOT_PAIRED`; timezone không IANA 400; slot 0/4/hộp khác 400 `COMPARTMENT_INVALID`; 11 ca `VALIDATION_ERROR`; xóa mềm; audit không chứa dữ liệu thuốc; PUT/DELETE không đổi `DoseInstances`/snapshot — AC-10/D-22) · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit 3fc26d3 | Code + test xong; **chặn DONE bởi D-23** (chưa có luật chồng lấn). `ScheduleVersion` tăng nguyên tử bằng `ExecuteUpdate` cùng transaction với audit. Chưa có `If-Match` [ĐỀ XUẤT]. **Lệch schema**: `MedicationSchedules` thiếu `DeletedAt`/`UpdatedAt`/`CreatedAt` so với AGENTS §3.3 / API_CONTRACT §5 — cần duyệt migration `AddScheduleTimestamps` |
 | [P3-03](PLAN.md#p3-03) | Sinh DoseInstances + snapshot | `TODO` | P3-01, P0-04 | | AC-10; D-22 đã chốt; còn D-11, D-23 |
 | [P3-04](PLAN.md#p3-04) | Đồng bộ lịch cho thiết bị | `TODO` | P3-01, P3-02, P2-07 | | timezone từng lịch (D-10 đã chốt), D-22 đã chốt |
-| [P3-05](PLAN.md#p3-05) | Máy trạng thái lần uống | `TODO` | P3-03 | | D-24 |
+| [P3-05](PLAN.md#p3-05) | Máy trạng thái lần uống | `IN_PROGRESS` | P3-03 | `DoseStateMachineTests` 12/12 (unit) · commit 07dc4ee | Code + unit test xong; **chặn DONE bởi D-24** (xác nhận muộn sau Overdue/Unknown, `ResolvedAt`); phụ thuộc P3-03 chưa DONE |
 | [P3-06](PLAN.md#p3-06) | API dashboard & lịch sử | `TODO` | P3-05, P1-05 | | AC-06 |
 
 ---
@@ -170,9 +170,9 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 |---|---|---|---|---|---|
 | [P6-01](PLAN.md#p6-01) | Entity ảnh & storage private | `DONE` | P0-04, P1-05 | `PrescriptionStorageTests` 3/3 (không có cột binary; thư mục lưu ngoài WebRoot, file không truy cập được qua URL tĩnh → 404; chỉ owner có hộp) · full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E · commit ba4f715 | `PrescriptionImageService`; giữ `LocalFileStorage` private (D-04 vẫn TBD, theo [ĐỀ XUẤT]); không cần migration |
 | [P6-02](PLAN.md#p6-02) | Upload validation (5 MB, magic bytes, EXIF) | `DONE` | P6-01 | `ImageSanitizerTests` 7/7 (magic bytes bỏ qua phần mở rộng; JPEG bỏ EXIF GPS/XMP/COM/APP sau scan/dữ liệu sau EOI; PNG chỉ giữ chunk ảnh; WebP bỏ EXIF/XMP + sửa header; file hỏng → invalid) · `PrescriptionUploadApiTests` 9/9 (owner 201; relative/người ngoài 403; ẩn danh 401; .exe đổi tên 415; JPEG hỏng 400; 5,242,881 B và 6 MB → 413; đúng 5 MB → 201; file lưu không còn EXIF/GPS; audit không có tên file; DB lỗi không để file mồ côi) · full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E · commit fb6b464 | Loại metadata bằng cách viết lại JPEG/PNG/WebP theo allow-list, không thêm thư viện; `contentType` theo magic bytes; `sizeBytes` = sau khi loại metadata. **Lệch hợp đồng**: API_CONTRACT §8/§12 yêu cầu ảnh "giải mã được" — hiện chỉ kiểm cấu trúc, không giải mã pixel (cần duyệt thư viện ảnh hoặc chấp nhận). JPEG bỏ ICC (APP2) có thể lệch màu nhẹ. D-16 vẫn TBD (không chống trùng) |
-| [P6-03](PLAN.md#p6-03) | Xem/tải ảnh có kiểm tra quyền | `TODO` | P6-02 | | AC-11 |
-| [P6-04](PLAN.md#p6-04) | Xóa mềm & audit ảnh | `TODO` | P6-03 | | D-16 |
-| [P6-05](PLAN.md#p6-05) | Đối chiếu file & runbook backup | `TODO` | P6-01 | | |
+| [P6-03](PLAN.md#p6-03) | Xem/tải ảnh có kiểm tra quyền | `DONE` | P6-02 | `PrescriptionReadApiTests` 4/4 (owner list không lộ storage key; tải về đúng bytes + `Cache-Control: private, no-store` + `nosniff`; relative/người ngoài/ẩn danh bị chặn; ảnh của chủ khác → 404 `IMAGE_NOT_FOUND`) · full suite unit 154/154, integration 216/216 trên SQL Express · commit a74c2d5 (fixture/assertion sửa ở 40d1e10) | Test chỉ pass từ 40d1e10 (JPEG mẫu hỏng trước đó). AC-11 vẫn cần kiểm UI trên trình duyệt |
+| [P6-04](PLAN.md#p6-04) | Xóa mềm & audit ảnh | `DONE` | P6-03 | `PrescriptionDeleteApiTests` 3/3 (owner xóa mềm + audit, file vật lý giữ lại; relative/người ngoài 403; xóa lặp → 404) · full suite 154/154 + 216/216 · commit fd47157 (fixture sửa ở 40d1e10) | Giữ file vật lý theo `[TBD-D16]` (chính sách lưu giữ chưa chốt) |
+| [P6-05](PLAN.md#p6-05) | Đối chiếu file & runbook backup | `IN_PROGRESS` | P6-01 | `PrescriptionFileReconciliationTests` 1/1 · [docs/runbook-backup-restore.md](docs/runbook-backup-restore.md) · commit 2e5e8db | Restore thật **NOT RUN** ([docs/backup-restore-test-report.md](docs/backup-restore-test-report.md)): chưa có backup mã hóa/môi trường sạch để phục hồi |
 
 ---
 
@@ -194,11 +194,11 @@ ghi chú: <phần chưa kiểm chứng nếu có>
 | ID | Task | Trạng thái | Phụ thuộc | Bằng chứng / Test | Ghi chú |
 |---|---|---|---|---|---|
 | [UI-01](PLAN.md#ui-01) | Trang xác thực tài khoản | `DONE` | P1-02…P1-04, P0-01 | `AccountPagesTests` 20/20 (6 trang GET 200 + antiforgery; 7 form thiếu CSRF → 400; chuỗi AC-12 qua form; thông báo trung tính; lỗi `PasswordPolicy`; login 429) · **trình duyệt thật 2026-11-09** (Kestrel HTTPS + LocalDB): đăng ký (lỗi mật khẩu yếu hiển thị) → xác minh bằng mã trong email sink → đăng nhập → trang tài khoản → đăng xuất → `/account` chuyển về login; desktop + mobile 375px không cuộn ngang · full suite 285/285 (120 unit + 165 integration) sau merge · build 0W/0E · commit 78ad493 | Razor `/account/*` (D-01); `LoginService` + `SessionCookie` dùng chung với API. Quên/đặt lại mật khẩu mới kiểm bằng test HTTP, chưa bấm thử trên trình duyệt. Email chỉ chứa mã, không link (D-30) |
-| [UI-02](PLAN.md#ui-02) | Ghép hộp & trạng thái thiết bị | `TODO` | P2-04, P2-05, P2-07, UI-01 | | |
-| [UI-03](PLAN.md#ui-03) | Quản lý lịch uống | `TODO` | P3-02, UI-01 | | |
-| [UI-04](PLAN.md#ui-04) | Dashboard & lịch sử | `TODO` | P3-06, P4-04, UI-02 | | AC-06 |
+| [UI-02](PLAN.md#ui-02) | Ghép hộp & trạng thái thiết bị | `IN_PROGRESS` | P2-04, P2-05, P2-07, UI-01 | `AppPagesTests` (`/devices`, `/devices/pair` → 200) · commit ec8c355 (view sửa ở 40d1e10) | Trang trả 500 tới 40d1e10. Chỉ nhập mã thủ công, quét QR trên Web là `[TBD-D20]`. Chưa kiểm trình duyệt luồng ghép |
+| [UI-03](PLAN.md#ui-03) | Quản lý lịch uống | `IN_PROGRESS` | P3-02, UI-01 | `AppPagesTests` (`/schedules` → 200) · commit 1fb6f3d (view sửa ở 40d1e10) | P3-02 chưa DONE (D-23). Chưa kiểm trình duyệt |
+| [UI-04](PLAN.md#ui-04) | Dashboard & lịch sử | `IN_PROGRESS` | P3-06, P4-04, UI-02 | `AppPagesTests` (`/dashboard` → 200) · trình duyệt 2026-11-10: tài khoản chưa có hộp thấy lời nhắc ghép hộp · commits a9faecd, c2e7d10, 40d1e10 | Chưa có lịch sử/cảnh báo trên UI; phụ thuộc P3-06, P4-04 |
 | [UI-05](PLAN.md#ui-05) | Người thân & cảnh báo | `TODO` | P2-09, P2-10, P5-05, UI-01 | | |
-| [UI-06](PLAN.md#ui-06) | Ảnh đơn thuốc | `TODO` | P6-02…P6-04, UI-01 | | AC-11 |
+| [UI-06](PLAN.md#ui-06) | Ảnh đơn thuốc | `IN_PROGRESS` | P6-02…P6-04, UI-01 | `PrescriptionPagesTests` 3/3 (owner 200 + antiforgery; relative 403; ẩn danh → login) · commit 437ab13 | Chưa kiểm upload/xem/xóa trên trình duyệt (AC-11) |
 | [UI-07](PLAN.md#ui-07) | Rà soát responsive & thuật ngữ | `TODO` | UI-01…UI-06 | | Không còn "đã uống" |
 
 ---
@@ -313,6 +313,8 @@ Kết luận: **MVP NOT ACCEPTED**. Nguyên nhân gốc: P0-02…P7-06 chưa tri
 | 2026-11-09 | P2-05 | `TODO` → `DONE` | commit c2f9984; full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E | Subagent + Agent review |
 | 2026-11-09 | P6-01 | `TODO` → `DONE` | commit ba4f715; full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E | Subagent + Agent review |
 | 2026-11-09 | P6-02 | `TODO` → `DONE` | commit fb6b464; full suite 339/339 (139 unit + 200 integration) sau merge · build 0W/0E | Subagent + Agent review |
+| 2026-11-12 | P6-03, P6-04 | `TODO` → `DONE` | commits a74c2d5, fd47157 + 40d1e10; unit 154/154, integration 216/216 trên SQL Express | Agent |
+| 2026-11-12 | P3-05, P6-05, UI-02, UI-03, UI-04, UI-06 | `TODO` → `IN_PROGRESS` | đồng bộ bảng với code đã có trên `main` (xem từng dòng) | Agent |
 
 ---
 
