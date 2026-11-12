@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,10 @@ namespace SmartMedBox.Api.Controllers;
 [Route("api")]
 public sealed class DashboardController(AppDbContext db, DeviceAccessService access, IClock clock) : ControllerBase
 {
+    // API_CONTRACT §7.1: timezone hiển thị mặc định của hộp; Devices chưa có cột timezone riêng.
+    private const string DisplayTimeZoneId = "Asia/Ho_Chi_Minh";
+    private const int LatestAlertCount = 5;
+
     [HttpGet("dashboard")]
     public async Task<IActionResult> Dashboard(Guid deviceId, CancellationToken cancellationToken)
     {
@@ -28,13 +33,18 @@ public sealed class DashboardController(AppDbContext db, DeviceAccessService acc
 
         var now = clock.UtcNow;
         var doses = await LoadDosesAsync(deviceId, now.AddDays(-2), now.AddDays(2), cancellationToken);
-        var today = doses.Where(x => x.LocalDate == DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, TimeZoneInfo.FindSystemTimeZoneById(x.TimeZoneId)).DateTime)).ToList();
+        var today = doses.Where(x => x.LocalDate == LocalDate(now, x.TimeZoneId)).ToList();
+        var alerts = await LoadAlertsAsync(deviceId, userId, unreadOnly: false, cancellationToken);
         return Ok(new
         {
             device = new { device.Id, device.SerialNumber, isOnline = (bool?)null, device.LastSeenAt, device.ScheduleVersion },
-            today = new { date = DateOnly.FromDateTime(now.DateTime), timeZoneId = "per-dose", doses = today },
+            today = new { date = LocalDate(now, DisplayTimeZoneId), timeZoneId = DisplayTimeZoneId, doses = today },
             nextDose = doses.Where(x => x.ScheduledAt >= now && x.Status == DoseStatus.Pending).OrderBy(x => x.ScheduledAt).FirstOrDefault(),
-            alerts = new { unreadCount = 0, latest = Array.Empty<object>() },
+            alerts = new
+            {
+                unreadCount = alerts.Count(x => x.ReadAt == null),
+                latest = alerts.Take(LatestAlertCount),
+            },
         });
     }
 
@@ -82,15 +92,23 @@ public sealed class DashboardController(AppDbContext db, DeviceAccessService acc
         if (!await access.CanAsync(userId, deviceId, DeviceOperation.Read, cancellationToken)) return Forbidden();
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var query = from alert in db.Alerts.AsNoTracking()
-                    join dose in db.DoseInstances.AsNoTracking() on alert.DoseInstanceId equals dose.Id
-                    join recipient in db.AlertRecipients.AsNoTracking() on alert.Id equals recipient.AlertId
-                    where dose.DeviceId == deviceId && recipient.RecipientUserId == userId && (!unreadOnly || recipient.ReadAt == null)
-                    select new { alert.Id, alert.DoseInstanceId, alert.AlertType, alert.Message, alert.CreatedAt, alert.ResolvedAt, recipient.ReadAt };
-        var items = await query.OrderByDescending(x => x.CreatedAt).ToListAsync(cancellationToken);
+        var items = await LoadAlertsAsync(deviceId, userId, unreadOnly, cancellationToken);
         var total = items.Count;
         return Ok(new { items = items.Skip((page - 1) * pageSize).Take(pageSize), page, pageSize, total, unreadCount = items.Count(x => x.ReadAt == null) });
     }
+
+    // readAt thuộc AlertRecipients của chính người gọi: người thân chỉ thấy cảnh báo mình là người nhận.
+    private Task<List<AlertDto>> LoadAlertsAsync(Guid deviceId, Guid userId, bool unreadOnly, CancellationToken cancellationToken) =>
+        (from alert in db.Alerts.AsNoTracking()
+         join dose in db.DoseInstances.AsNoTracking() on alert.DoseInstanceId equals dose.Id
+         join recipient in db.AlertRecipients.AsNoTracking() on alert.Id equals recipient.AlertId
+         where dose.DeviceId == deviceId && recipient.RecipientUserId == userId && (!unreadOnly || recipient.ReadAt == null)
+         orderby alert.CreatedAt descending
+         select new AlertDto(alert.Id, alert.DoseInstanceId, alert.AlertType, alert.Message, alert.CreatedAt, alert.ResolvedAt, recipient.ReadAt))
+        .ToListAsync(cancellationToken);
+
+    private static DateOnly LocalDate(DateTimeOffset instant, string timeZoneId) =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, TimeZoneInfo.FindSystemTimeZoneById(timeZoneId)).DateTime);
 
     private async Task<List<DoseDto>> LoadDosesAsync(Guid deviceId, DateTimeOffset fromInclusive, DateTimeOffset toExclusive, CancellationToken cancellationToken)
     {
@@ -103,8 +121,7 @@ public sealed class DashboardController(AppDbContext db, DeviceAccessService acc
         var items = await db.DoseItemSnapshots.AsNoTracking().Where(x => ids.Contains(x.DoseInstanceId)).ToListAsync(cancellationToken);
         return rows.Select(row =>
         {
-            var zone = TimeZoneInfo.FindSystemTimeZoneById(row.TimeZoneId);
-            var localDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(row.dose.ScheduledAt, zone).DateTime);
+            var localDate = LocalDate(row.dose.ScheduledAt, row.TimeZoneId);
             return new DoseDto(row.dose.Id, row.SlotNumber, row.dose.ScheduledAt, row.dose.DeadlineAt, localDate, row.TimeZoneId, row.dose.Status, row.dose.ConfirmedAt, row.dose.GracePeriodMinutes,
                 items.Where(x => x.DoseInstanceId == row.dose.Id).Select(x => new DoseItemDto(x.MedicineName, x.Quantity, x.Unit, x.Instructions)).ToList());
         }).ToList();
@@ -114,5 +131,7 @@ public sealed class DashboardController(AppDbContext db, DeviceAccessService acc
     private IActionResult NotFoundProblem(string code) => ApiProblemResults.Create(HttpContext, StatusCodes.Status404NotFound, code);
 }
 
-public sealed record DoseDto(Guid Id, int CompartmentSlot, DateTimeOffset ScheduledAt, DateTimeOffset DeadlineAt, DateOnly LocalDate, string TimeZoneId, DoseStatus Status, DateTimeOffset? ConfirmedAt, int GracePeriodMinutes, IReadOnlyList<DoseItemDto> Items);
+// Enum trả dạng chuỗi theo API_CONTRACT (Pending/Confirmed/Overdue/Unknown, OverdueUnconfirmed/UnconfirmedOffline).
+public sealed record DoseDto(Guid Id, int CompartmentSlot, DateTimeOffset ScheduledAt, DateTimeOffset DeadlineAt, DateOnly LocalDate, string TimeZoneId, [property: JsonConverter(typeof(JsonStringEnumConverter))] DoseStatus Status, DateTimeOffset? ConfirmedAt, int GracePeriodMinutes, IReadOnlyList<DoseItemDto> Items);
 public sealed record DoseItemDto(string MedicineName, decimal Quantity, string Unit, string Instructions);
+public sealed record AlertDto(Guid Id, Guid DoseInstanceId, [property: JsonConverter(typeof(JsonStringEnumConverter))] AlertType AlertType, string Message, DateTimeOffset CreatedAt, DateTimeOffset? ResolvedAt, DateTimeOffset? ReadAt);
