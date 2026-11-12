@@ -17,9 +17,9 @@ namespace SmartMedBox.Api.Controllers;
 [Authorize(AuthenticationSchemes = DeviceAuthenticationHandler.SchemeName)]
 [IgnoreAntiforgeryToken]
 [Route("api/device")]
-public sealed class DeviceController(AppDbContext db, IClock clock) : ControllerBase
+public sealed class DeviceController(AppDbContext db, IClock clock, DeviceConnectivityService connectivity) : ControllerBase
 {
-    // shortcut: giá trị ví dụ của API_CONTRACT §9.1; tần suất heartbeat thuộc D-12/D-26 chưa chốt.
+    // D-12 (API_CONTRACT §1.7): heartbeat mỗi 60 giây.
     private const int NextHeartbeatSeconds = 60;
 
     [HttpPost("heartbeat")]
@@ -31,9 +31,7 @@ public sealed class DeviceController(AppDbContext db, IClock clock) : Controller
         }
 
         var now = clock.UtcNow;
-        await db.Devices
-            .Where(x => x.Id == deviceKey)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastSeenAt, now), cancellationToken);
+        await connectivity.RecordHeartbeatAsync(deviceKey, now, cancellationToken);
 
         var device = await db.Devices.AsNoTracking()
             .Where(x => x.Id == deviceKey)

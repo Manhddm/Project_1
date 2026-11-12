@@ -36,8 +36,8 @@ public sealed class MyDeviceApiTests(SqlServerDatabaseFixture fixture) : IClassF
         Assert.Equal(device.Provisioned.Device.SerialNumber, body.GetProperty("serialNumber").GetString());
         Assert.Equal(4, body.GetProperty("scheduleVersion").GetInt32());
         Assert.Equal(lastSeen, body.GetProperty("lastSeenAt").GetDateTimeOffset());
-        // Ngưỡng online/offline là [TBD-D12]: không kết luận.
-        Assert.Equal(JsonValueKind.Null, body.GetProperty("isOnline").ValueKind);
+        // D-12: lastSeen cố định trong quá khứ, quá 5 phút so với đồng hồ thật → offline.
+        Assert.False(body.GetProperty("isOnline").GetBoolean());
         var compartments = body.GetProperty("compartments").EnumerateArray().ToList();
         Assert.Equal([1, 2, 3], compartments.Select(x => x.GetProperty("slotNumber").GetInt32()));
         Assert.All(compartments, x => Assert.True(x.GetProperty("isEnabled").GetBoolean()));
@@ -65,6 +65,25 @@ public sealed class MyDeviceApiTests(SqlServerDatabaseFixture fixture) : IClassF
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
             Assert.Equal("DEVICE_NOT_FOUND", await ReadCodeAsync(response));
         }
+    }
+
+    [Fact]
+    public async Task Mine_HeartbeatWithinFiveMinutes_IsOnlineTrue()
+    {
+        using var factory = new TestApplicationFactory(fixture.ConnectionString);
+        var device = await DevicePairingApiTests.ProvisionAsync(factory);
+        var owner = await TestUsers.SeedAsync(fixture);
+        using var client = await LoginWithCsrfAsync(factory, owner);
+        (await DevicePairingApiTests.PairAsync(client, device.PairingCode.Code)).EnsureSuccessStatusCode();
+        await using (var db = fixture.CreateContext())
+        {
+            await db.Devices.Where(x => x.Id == device.Provisioned.Device.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastSeenAt, DateTimeOffset.UtcNow.AddMinutes(-1)));
+        }
+
+        var body = await ReadJsonAsync(await client.GetAsync(Url));
+
+        Assert.True(body.GetProperty("isOnline").GetBoolean());
     }
 
     [Fact]

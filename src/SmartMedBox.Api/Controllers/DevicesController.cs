@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.RateLimiting;
 using SmartMedBox.Api.Contracts;
 using SmartMedBox.Api.Errors;
 using SmartMedBox.Api.Security;
+using Microsoft.Extensions.Options;
+using SmartMedBox.Domain.Abstractions;
 using SmartMedBox.Infrastructure.Devices;
 
 namespace SmartMedBox.Api.Controllers;
@@ -12,7 +14,8 @@ namespace SmartMedBox.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/devices")]
-public sealed class DevicesController(DeviceOwnershipService ownership) : ControllerBase
+public sealed class DevicesController(
+    DeviceOwnershipService ownership, IClock clock, IOptions<DeviceConnectivityOptions> connectivity) : ControllerBase
 {
     [HttpPost("pair")]
     [EnableRateLimiting(RateLimitPolicies.Pair)]
@@ -58,7 +61,7 @@ public sealed class DevicesController(DeviceOwnershipService ownership) : Contro
                 device.SerialNumber,
                 device.ScheduleVersion,
                 device.LastSeenAt,
-                IsOnline: null,
+                IsOnline: connectivity.Value.IsOnline(device.LastSeenAt, clock.UtcNow),
                 ToDto(device.Compartments)));
     }
 

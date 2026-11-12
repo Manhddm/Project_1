@@ -81,6 +81,8 @@ public sealed class HeartbeatApiTests(SqlServerDatabaseFixture fixture) : IClass
         Assert.Null(stored.OwnerUserId);
         Assert.Equal(0, stored.ScheduleVersion);
         Assert.Equal(device.Provisioned.Device.DeviceApiKeyHash, stored.DeviceApiKeyHash);
+        var window = await db.DeviceConnectivityWindows.AsNoTracking().SingleAsync(x => x.DeviceId == stored.Id);
+        Assert.Equal((Now, Now.AddMinutes(1)), (window.OnlineFrom, window.LastSeenAt));
     }
 
     [Fact]
@@ -97,6 +99,8 @@ public sealed class HeartbeatApiTests(SqlServerDatabaseFixture fixture) : IClass
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Null(await GetLastSeenAtAsync(device));
+        await using var db = fixture.CreateContext();
+        Assert.False(await db.DeviceConnectivityWindows.AnyAsync(x => x.DeviceId == device.Provisioned.Device.Id));
     }
 
     private WebApplicationFactory<Program> CreateFactory() =>

@@ -19,11 +19,11 @@ public sealed record PairedDeviceDto(
 
 public sealed record PairDeviceResponse(PairedDeviceDto Device);
 
-// isOnline luôn null cho tới khi chốt ngưỡng online/offline [TBD-D12]; client dựa vào lastSeenAt.
+// isOnline = LastSeenAt >= now - 5 phút (D-12, API_CONTRACT §1.7).
 public sealed record MyDeviceDto(
     Guid Id,
     string SerialNumber,
     int ScheduleVersion,
     DateTimeOffset? LastSeenAt,
-    bool? IsOnline,
+    bool IsOnline,
     IReadOnlyList<CompartmentDto> Compartments);

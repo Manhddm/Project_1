@@ -3,12 +3,13 @@ using SmartMedBox.Domain.Abstractions;
 using SmartMedBox.Domain.Entities;
 using SmartMedBox.Domain.Enums;
 using SmartMedBox.Infrastructure.Data;
+using SmartMedBox.Infrastructure.Devices;
 
 namespace SmartMedBox.Infrastructure.Alerts;
 
 public sealed record AlertEvaluationResult(int EvaluatedCount, int CreatedCount, int SkippedCount);
 
-public sealed class AlertEvaluationService(AppDbContext db, IClock clock, IAlertConnectivityPolicy connectivityPolicy)
+public sealed class AlertEvaluationService(AppDbContext db, IClock clock, DeviceConnectivityService connectivity)
 {
     public async Task<AlertEvaluationResult> EvaluateAsync(CancellationToken cancellationToken = default)
     {
@@ -34,8 +35,8 @@ public sealed class AlertEvaluationService(AppDbContext db, IClock clock, IAlert
         if (dose is null) return false;
 
         var device = await db.Devices.AsNoTracking().Where(x => x.Id == dose.DeviceId)
-            .Select(x => new { x.OwnerUserId, x.LastSeenAt }).SingleAsync(cancellationToken);
-        var online = connectivityPolicy.Evaluate(dose.DeadlineAt, device.LastSeenAt) == AlertConnectivity.Online;
+            .Select(x => new { x.OwnerUserId }).SingleAsync(cancellationToken);
+        var online = await connectivity.WasOnlineAtAsync(dose.DeviceId, dose.DeadlineAt, cancellationToken);
         var status = online ? DoseStatus.Overdue : DoseStatus.Unknown;
         var alertType = online ? AlertType.OverdueUnconfirmed : AlertType.UnconfirmedOffline;
         var message = online ? "Lần uống đã quá hạn và chưa được xác nhận: nắp ngăn đúng chưa được mở trong thời gian chờ." : "Không thể xác nhận do mất kết nối.";

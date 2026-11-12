@@ -2,7 +2,9 @@ using System.Collections.Concurrent;
 using SmartMedBox.Domain.Entities;
 using SmartMedBox.Domain.Enums;
 using SmartMedBox.Infrastructure.Alerts;
+using Microsoft.Extensions.Options;
 using SmartMedBox.Infrastructure.Data;
+using SmartMedBox.Infrastructure.Devices;
 using SmartMedBox.Infrastructure.Email;
 using SmartMedBox.IntegrationTests.Schema;
 using SmartMedBox.UnitTests.TestDoubles;
@@ -12,8 +14,8 @@ namespace SmartMedBox.IntegrationTests.Alerts;
 // The evaluation job and email worker scan whole tables, so every test gets its own database.
 internal sealed class AlertTestDatabase : IAsyncDisposable
 {
-    // [TBD-D12] / [TBD-D13]: test-only values, not the final policy.
-    public static readonly TimeSpan OnlineThreshold = TimeSpan.FromMinutes(10);
+    // D-12 default (5 minutes); D-13 retry values below are test-only.
+    public static readonly TimeSpan OnlineThreshold = new DeviceConnectivityOptions().OfflineThreshold;
     public const int MaxAttempts = 3;
     public static readonly TimeSpan RetryDelay = TimeSpan.FromMinutes(1);
 
@@ -31,13 +33,14 @@ internal sealed class AlertTestDatabase : IAsyncDisposable
     public AppDbContext CreateContext() => _fixture.CreateContext();
 
     public AlertEvaluationService CreateEvaluator(AppDbContext db) =>
-        new(db, Clock, new DeadlineConnectivityPolicy(new AlertEvaluationOptions { OnlineThreshold = OnlineThreshold }));
+        new(db, Clock, new DeviceConnectivityService(db, Options.Create(new DeviceConnectivityOptions())));
 
     public EmailDeliveryWorker CreateWorker(AppDbContext db, IEmailSender sender) =>
         new(db, Clock, sender,
             new ConfiguredEmailRetryPolicy(new EmailRetryPolicyOptions { MaxAttempts = MaxAttempts, RetryDelays = [RetryDelay, RetryDelay] }),
             new EmailDeliveryWorkerOptions { LeaseDuration = TimeSpan.FromMinutes(5) });
 
+    /// <summary>A non-null <paramref name="lastSeenAt"/> also seeds one connectivity window that has been open for a day.</summary>
     public async Task<Box> SeedBoxAsync(DateTimeOffset? lastSeenAt, int activeRelatives = 2, int revokedRelatives = 1)
     {
         await using var db = CreateContext();
@@ -55,6 +58,14 @@ internal sealed class AlertTestDatabase : IAsyncDisposable
         };
         db.ApplicationUsers.Add(owner);
         db.Devices.Add(device);
+        if (lastSeenAt is { } seenAt)
+        {
+            db.DeviceConnectivityWindows.Add(new DeviceConnectivityWindow
+            {
+                Id = Guid.NewGuid(), DeviceId = device.Id, OnlineFrom = seenAt.AddDays(-1), LastSeenAt = seenAt,
+            });
+        }
+
         db.Compartments.Add(compartment);
         db.MedicationSchedules.Add(schedule);
 
@@ -90,6 +101,16 @@ internal sealed class AlertTestDatabase : IAsyncDisposable
         db.DoseInstances.Add(dose);
         await db.SaveChangesAsync();
         return dose.Id;
+    }
+
+    public async Task SeedWindowAsync(Box box, DateTimeOffset onlineFrom, DateTimeOffset lastSeenAt)
+    {
+        await using var db = CreateContext();
+        db.DeviceConnectivityWindows.Add(new DeviceConnectivityWindow
+        {
+            Id = Guid.NewGuid(), DeviceId = box.DeviceId, OnlineFrom = onlineFrom, LastSeenAt = lastSeenAt,
+        });
+        await db.SaveChangesAsync();
     }
 
     public async ValueTask DisposeAsync() => await _fixture.DisposeAsync();

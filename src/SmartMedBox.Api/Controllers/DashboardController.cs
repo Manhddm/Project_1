@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SmartMedBox.Api.Errors;
 using SmartMedBox.Api.Security;
 using SmartMedBox.Domain.Abstractions;
@@ -15,7 +16,8 @@ namespace SmartMedBox.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api")]
-public sealed class DashboardController(AppDbContext db, DeviceAccessService access, IClock clock) : ControllerBase
+public sealed class DashboardController(
+    AppDbContext db, DeviceAccessService access, IClock clock, IOptions<DeviceConnectivityOptions> connectivity) : ControllerBase
 {
     // API_CONTRACT §7.1: timezone hiển thị mặc định của hộp; Devices chưa có cột timezone riêng.
     private const string DisplayTimeZoneId = "Asia/Ho_Chi_Minh";
@@ -37,7 +39,7 @@ public sealed class DashboardController(AppDbContext db, DeviceAccessService acc
         var alerts = await LoadAlertsAsync(deviceId, userId, unreadOnly: false, cancellationToken);
         return Ok(new
         {
-            device = new { device.Id, device.SerialNumber, isOnline = (bool?)null, device.LastSeenAt, device.ScheduleVersion },
+            device = new { device.Id, device.SerialNumber, isOnline = connectivity.Value.IsOnline(device.LastSeenAt, now), device.LastSeenAt, device.ScheduleVersion },
             today = new { date = LocalDate(now, DisplayTimeZoneId), timeZoneId = DisplayTimeZoneId, doses = today },
             nextDose = doses.Where(x => x.ScheduledAt >= now && x.Status == DoseStatus.Pending).OrderBy(x => x.ScheduledAt).FirstOrDefault(),
             alerts = new

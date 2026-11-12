@@ -32,7 +32,7 @@ public sealed record DoseTransitionResult(
     DoseTransitionReason Reason,
     DateTimeOffset? ConfirmedAt);
 
-public sealed class DoseStateMachine(IClock clock, IDoseDeadlineConnectivityPolicy? connectivityPolicy = null)
+public sealed class DoseStateMachine(IClock clock)
 {
     public DoseTransitionResult ApplyLidOpened(
         DoseInstance dose,
@@ -67,7 +67,8 @@ public sealed class DoseStateMachine(IClock clock, IDoseDeadlineConnectivityPoli
         return Result(dose, previousStatus, DoseTransitionOutcome.Confirmed, DoseTransitionReason.LidOpenedInWindow);
     }
 
-    public DoseTransitionResult EvaluateDeadline(DoseInstance dose, DateTimeOffset? lastSeenAt)
+    /// <param name="onlineAtDeadline">From <c>DeviceConnectivityService.WasOnlineAtAsync</c> (D-12).</param>
+    public DoseTransitionResult EvaluateDeadline(DoseInstance dose, bool onlineAtDeadline)
     {
         ArgumentNullException.ThrowIfNull(dose);
 
@@ -85,12 +86,7 @@ public sealed class DoseStateMachine(IClock clock, IDoseDeadlineConnectivityPoli
             return Result(dose, previousStatus, DoseTransitionOutcome.NoChange, DoseTransitionReason.DeadlineNotReached);
         }
 
-        if (connectivityPolicy is null)
-        {
-            throw new InvalidOperationException("A deadline connectivity policy is required to evaluate a dose deadline.");
-        }
-
-        var online = connectivityPolicy.WasOnlineAtDeadline(dose.DeadlineAt, lastSeenAt);
+        var online = onlineAtDeadline;
         dose.Status = online ? DoseStatus.Overdue : DoseStatus.Unknown;
         return Result(
             dose,

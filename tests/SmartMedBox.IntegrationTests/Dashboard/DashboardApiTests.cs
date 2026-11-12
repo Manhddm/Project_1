@@ -131,8 +131,23 @@ public sealed class DashboardApiTests(SqlServerDatabaseFixture fixture) : IClass
         }
     }
 
+    [Theory]
+    [InlineData(300, true)]
+    [InlineData(301, false)]
+    public async Task Dashboard_IsOnline_UsesFiveMinuteLastSeenThreshold(int secondsSinceLastSeen, bool expected)
+    {
+        var setup = await SeedAsync(fixture);
+        _clock.UtcNow = Now.AddSeconds(secondsSinceLastSeen);
+
+        using var factory = CreateFactory(fixture, _clock);
+        using var owner = await LoginWithCsrfAsync(factory, setup.Owner);
+        using var body = await GetJsonAsync(owner, $"/api/dashboard?deviceId={setup.DeviceId}");
+
+        Assert.Equal(expected, body.RootElement.GetProperty("device").GetProperty("isOnline").GetBoolean());
+    }
+
     [Fact]
-    public async Task Dashboard_Relative_ShowsNextPendingDoseCallerAlertsAndNullIsOnline()
+    public async Task Dashboard_Relative_ShowsNextPendingDoseCallerAlertsAndIsOnline()
     {
         var setup = await SeedAsync(fixture);
         var schedule = await SeedScheduleAsync(fixture, setup.DeviceId, HoChiMinh);
@@ -150,8 +165,8 @@ public sealed class DashboardApiTests(SqlServerDatabaseFixture fixture) : IClass
             var device = body.RootElement.GetProperty("device");
             Assert.Equal(setup.DeviceId, device.GetProperty("id").GetGuid());
             Assert.Equal(setup.SerialNumber, device.GetProperty("serialNumber").GetString());
-            // [TBD-D12] ngưỡng online chưa chốt: không được tự kết luận online/offline.
-            Assert.Equal(JsonValueKind.Null, device.GetProperty("isOnline").ValueKind);
+            // D-12: LastSeenAt = now nên online.
+            Assert.True(device.GetProperty("isOnline").GetBoolean());
             Assert.Equal(Now, device.GetProperty("lastSeenAt").GetDateTimeOffset());
             Assert.Equal(0, device.GetProperty("scheduleVersion").GetInt32());
 

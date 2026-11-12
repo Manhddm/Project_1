@@ -76,6 +76,42 @@ public sealed class AlertEvaluationServiceTests
     }
 
     [Fact]
+    public async Task EvaluateAsync_OfflineAtDeadlineReconnectedBeforeJobRuns_MarksUnknownWithOfflineAlert()
+    {
+        await using var env = await AlertTestDatabase.CreateAsync();
+        var deadline = env.Clock.UtcNow.AddMinutes(-30);
+        // Offline from deadline-20min until it reconnected 2 minutes ago: LastSeenAt is fresh, but no window covers the deadline.
+        var box = await env.SeedBoxAsync(lastSeenAt: deadline.AddMinutes(-20));
+        await env.SeedWindowAsync(box, env.Clock.UtcNow.AddMinutes(-2), env.Clock.UtcNow);
+        await using (var seed = env.CreateContext())
+        {
+            await seed.Devices.Where(x => x.Id == box.DeviceId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastSeenAt, env.Clock.UtcNow));
+        }
+
+        var doseId = await env.SeedDoseAsync(box, deadline);
+
+        await using (var db = env.CreateContext()) await env.CreateEvaluator(db).EvaluateAsync();
+
+        await AssertOfflineOutcomeAsync(env, doseId);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_WindowOpenedAfterDeadline_MarksUnknown()
+    {
+        await using var env = await AlertTestDatabase.CreateAsync();
+        var deadline = env.Clock.UtcNow.AddMinutes(-30);
+        var box = await env.SeedBoxAsync(lastSeenAt: null);
+        // Ends within the threshold of the deadline but only started after it.
+        await env.SeedWindowAsync(box, deadline.AddSeconds(1), env.Clock.UtcNow);
+        var doseId = await env.SeedDoseAsync(box, deadline);
+
+        await using (var db = env.CreateContext()) await env.CreateEvaluator(db).EvaluateAsync();
+
+        await AssertOfflineOutcomeAsync(env, doseId);
+    }
+
+    [Fact]
     public async Task EvaluateAsync_ConfirmedOrNotYetDueDoses_CreatesNoAlert()
     {
         await using var env = await AlertTestDatabase.CreateAsync();

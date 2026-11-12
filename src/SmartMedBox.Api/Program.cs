@@ -123,6 +123,8 @@ builder.Services.AddScoped<DeviceAccessService>();
 builder.Services.AddScoped<DeviceEventIngestionService>();
 builder.Services.AddScoped<DeviceEventMatchingService>();
 builder.Services.AddScoped<DeviceOwnershipService>();
+builder.Services.AddScoped<DeviceConnectivityService>();
+builder.Services.Configure<DeviceConnectivityOptions>(builder.Configuration.GetSection("DeviceConnectivity"));
 builder.Services.AddScoped<RegistrationService>();
 builder.Services.AddScoped<PasswordResetService>();
 builder.Services.AddScoped<ScheduleService>();
