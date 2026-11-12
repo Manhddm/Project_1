@@ -12,6 +12,8 @@ public sealed class AppPagesTests(SqlServerDatabaseFixture fixture) : IClassFixt
     [InlineData("/devices")]
     [InlineData("/devices/pair")]
     [InlineData("/schedules")]
+    [InlineData("/relatives")]
+    [InlineData("/alerts")]
     public async Task Get_LoggedInPage_RendersView(string url)
     {
         using var factory = new TestApplicationFactory(fixture.ConnectionString);

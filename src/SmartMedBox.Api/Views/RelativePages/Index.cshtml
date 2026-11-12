@@ -1,0 +1,36 @@
+@{
+    ViewData["Title"] = "Người thân";
+}
+<section class="panel" data-relatives-page>
+    <div class="page-heading"><div><p class="eyebrow">Chia sẻ theo dõi</p><h1>Người thân</h1><p>Người thân chỉ xem lịch, trạng thái và cảnh báo; không sửa lịch, không xem ảnh đơn thuốc.</p></div></div>
+    @Html.AntiForgeryToken()
+    <p id="relatives-error" class="form-errors" role="alert" aria-live="assertive" hidden></p>
+    <p id="relatives-status" class="notice" role="status" aria-live="polite" hidden></p>
+
+    <div id="owner-section" hidden>
+        <form id="invite-form" class="upload-card">
+            <div class="field">
+                <label for="invite-email">Email người thân</label>
+                <input id="invite-email" type="email" maxlength="320" required autocomplete="off" />
+            </div>
+            <div class="prescription-actions"><button type="submit">Gửi lời mời</button></div>
+        </form>
+        <div class="prescription-list-heading"><h2>Lời mời</h2></div>
+        <div id="invitation-list" class="prescription-grid"><p class="hint">Đang tải…</p></div>
+        <div class="prescription-list-heading"><h2>Người thân của hộp</h2></div>
+        <div id="relationship-list" class="prescription-grid"><p class="hint">Đang tải…</p></div>
+    </div>
+
+    <div class="prescription-list-heading"><h2>Hộp bạn đang theo dõi</h2></div>
+    <div id="following-list" class="prescription-grid"><p class="hint">Đang tải…</p></div>
+
+    <div class="prescription-list-heading"><h2>Chấp nhận lời mời</h2></div>
+    <form id="accept-form" class="upload-card">
+        <div class="field">
+            <label for="accept-token">Mã lời mời <span class="hint">(trong email mời)</span></label>
+            <input id="accept-token" type="text" maxlength="200" required autocomplete="off" />
+        </div>
+        <div class="prescription-actions"><button type="submit">Chấp nhận lời mời</button></div>
+    </form>
+</section>
+@section Scripts { <script src="~/js/relatives.js" asp-append-version="true"></script> }

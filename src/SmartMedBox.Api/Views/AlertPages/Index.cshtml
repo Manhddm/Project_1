@@ -1,0 +1,11 @@
+@{
+    ViewData["Title"] = "Cảnh báo";
+}
+<section class="panel" data-alerts-page>
+    <div class="page-heading"><div><p class="eyebrow">Theo dõi hộp thuốc</p><h1>Cảnh báo</h1><p>Hệ thống chỉ biết nắp đã được mở. Khi thiết bị mất kết nối, cảnh báo ghi “không thể xác nhận”.</p></div></div>
+    @Html.AntiForgeryToken()
+    <p id="alerts-error" class="form-errors" role="alert" aria-live="assertive" hidden></p>
+    <div class="prescription-list-heading"><h2>Danh sách cảnh báo</h2><span id="alerts-count" class="hint"></span></div>
+    <div id="alerts-list" class="prescription-grid" aria-live="polite"><p class="hint">Đang tải cảnh báo…</p></div>
+</section>
+@section Scripts { <script src="~/js/alerts.js" asp-append-version="true"></script> }

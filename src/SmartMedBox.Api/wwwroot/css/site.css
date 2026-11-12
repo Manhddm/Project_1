@@ -72,7 +72,8 @@ p {
 
 .app-nav {
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
     align-items: center;
 }
 
@@ -232,6 +233,7 @@ button[type="submit"]:not(.link-button) {
     min-width: 0;
     flex-direction: column;
     gap: 0.35rem;
+    overflow-wrap: anywhere; /* email/serial dài không gây cuộn ngang ở 375px */
 }
 
 .prescription-card-details strong {

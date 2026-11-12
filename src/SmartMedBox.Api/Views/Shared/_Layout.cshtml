@@ -13,6 +13,8 @@
         @if (User.Identity?.IsAuthenticated == true)
         {
             <a href="/dashboard">Dashboard</a>
+            <a href="/alerts">Cảnh báo</a>
+            <a href="/relatives">Người thân</a>
             <a href="/account">Tài khoản</a>
             <form asp-controller="Account" asp-action="Logout" method="post" class="inline-form">
                 <button type="submit" class="link-button">Đăng xuất</button>
