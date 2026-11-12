@@ -35,7 +35,7 @@ internal sealed class AlertTestDatabase : IAsyncDisposable
 
     public EmailDeliveryWorker CreateWorker(AppDbContext db, IEmailSender sender) =>
         new(db, Clock, sender,
-            new ConfiguredEmailRetryPolicy(new EmailRetryPolicyOptions { MaxAttempts = MaxAttempts, InitialDelay = RetryDelay, BackoffMultiplier = 1 }),
+            new ConfiguredEmailRetryPolicy(new EmailRetryPolicyOptions { MaxAttempts = MaxAttempts, RetryDelays = [RetryDelay, RetryDelay] }),
             new EmailDeliveryWorkerOptions { LeaseDuration = TimeSpan.FromMinutes(5) });
 
     public async Task<Box> SeedBoxAsync(DateTimeOffset? lastSeenAt, int activeRelatives = 2, int revokedRelatives = 1)
@@ -119,7 +119,7 @@ internal sealed class FakeEmailSender : IEmailSender
 
     public void FailFor(string address, int times = int.MaxValue) => _remainingFailures[address] = times;
 
-    public async Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
+    public async Task<string> SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
     {
         if (SendDelay > TimeSpan.Zero) await Task.Delay(SendDelay, cancellationToken);
         if (_remainingFailures.TryGetValue(message.To, out var remaining) && remaining > 0)
@@ -130,7 +130,12 @@ internal sealed class FakeEmailSender : IEmailSender
         }
 
         Sent.Enqueue(message);
+        var messageId = EmailHeaders.NewMessageId("fake@test.local");
+        MessageIds.Enqueue(messageId);
+        return messageId;
     }
+
+    public ConcurrentQueue<string> MessageIds { get; } = new();
 
     public int SentCount(string address) => Sent.Count(x => string.Equals(x.To, address, StringComparison.OrdinalIgnoreCase));
 }

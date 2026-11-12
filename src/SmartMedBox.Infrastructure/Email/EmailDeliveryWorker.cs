@@ -8,7 +8,8 @@ namespace SmartMedBox.Infrastructure.Email;
 
 public sealed class EmailDeliveryWorkerOptions
 {
-    public required TimeSpan LeaseDuration { get; init; }
+    /// <summary>D-13: claim lease (<c>LockedUntil</c>) of 2 minutes by default.</summary>
+    public TimeSpan LeaseDuration { get; init; } = TimeSpan.FromMinutes(2);
 }
 
 public enum EmailDeliveryResult { NoDelivery, Sent, Retried, Exhausted, LeaseLost }
@@ -37,9 +38,10 @@ public sealed class EmailDeliveryWorker(AppDbContext db, IClock clock, IEmailSen
             where delivery.Id == id select new { delivery.Id, delivery.AttemptNumber, user.Email, alert.Message }).SingleAsync(cancellationToken);
         try
         {
-            await sender.SendAsync(new EmailMessage(payload.Email, "SmartMedBox alert", payload.Message), cancellationToken);
+            var messageId = await sender.SendAsync(EmailTemplates.DoseAlert(payload.Email, payload.Message), cancellationToken);
             var sent = await db.EmailDeliveries.Where(x => x.Id == payload.Id && x.Status == EmailDeliveryStatus.Pending && x.LockedUntil == leaseUntil)
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, EmailDeliveryStatus.Sent).SetProperty(x => x.SentAt, now).SetProperty(x => x.LockedUntil, (DateTimeOffset?)null), cancellationToken);
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, EmailDeliveryStatus.Sent).SetProperty(x => x.SentAt, now)
+                    .SetProperty(x => x.ProviderMessageId, messageId).SetProperty(x => x.LockedUntil, (DateTimeOffset?)null), cancellationToken);
             return sent == 1 ? EmailDeliveryResult.Sent : EmailDeliveryResult.LeaseLost;
         }
         catch (OperationCanceledException) { throw; }
