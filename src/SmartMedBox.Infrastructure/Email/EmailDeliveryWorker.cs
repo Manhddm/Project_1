@@ -1,8 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SmartMedBox.Domain.Abstractions;
+using SmartMedBox.Domain.Devices;
 using SmartMedBox.Domain.Entities;
 using SmartMedBox.Domain.Enums;
 using SmartMedBox.Infrastructure.Data;
+using SmartMedBox.Infrastructure.Devices;
 
 namespace SmartMedBox.Infrastructure.Email;
 
@@ -12,11 +14,12 @@ public sealed class EmailDeliveryWorkerOptions
     public TimeSpan LeaseDuration { get; init; } = TimeSpan.FromMinutes(2);
 }
 
-public enum EmailDeliveryResult { NoDelivery, Sent, Retried, Exhausted, LeaseLost }
+public enum EmailDeliveryResult { NoDelivery, Sent, Retried, Exhausted, LeaseLost, Cancelled }
 
 public sealed class EmailDeliveryWorker(AppDbContext db, IClock clock, IEmailSender sender, IEmailRetryPolicy retryPolicy, EmailDeliveryWorkerOptions options)
 {
     private readonly TimeSpan _leaseDuration = Validate(options).LeaseDuration;
+    private readonly DeviceAccessService _access = new(db);
 
     public async Task<EmailDeliveryResult> ProcessNextAsync(CancellationToken cancellationToken = default)
     {
@@ -34,8 +37,18 @@ public sealed class EmailDeliveryWorker(AppDbContext db, IClock clock, IEmailSen
         var payload = await (from delivery in db.EmailDeliveries.AsNoTracking()
             join recipient in db.AlertRecipients on delivery.AlertRecipientId equals recipient.Id
             join alert in db.Alerts on recipient.AlertId equals alert.Id
+            join dose in db.DoseInstances on alert.DoseInstanceId equals dose.Id
             join user in db.ApplicationUsers on recipient.RecipientUserId equals user.Id
-            where delivery.Id == id select new { delivery.Id, delivery.AttemptNumber, user.Email, alert.Message }).SingleAsync(cancellationToken);
+            where delivery.Id == id select new { delivery.Id, delivery.AttemptNumber, UserId = user.Id, user.Email, alert.Message, dose.DeviceId }).SingleAsync(cancellationToken);
+
+        // D-24c: recipient lost access (relative revoked, owner unpaired) after the alert was created → cancel, never send.
+        if (!await _access.CanAsync(payload.UserId, payload.DeviceId, DeviceOperation.Read, cancellationToken))
+        {
+            var cancelled = await db.EmailDeliveries.Where(x => x.Id == payload.Id && x.Status == EmailDeliveryStatus.Pending && x.LockedUntil == leaseUntil)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, EmailDeliveryStatus.Cancelled).SetProperty(x => x.LockedUntil, (DateTimeOffset?)null), cancellationToken);
+            return cancelled == 1 ? EmailDeliveryResult.Cancelled : EmailDeliveryResult.LeaseLost;
+        }
+
         try
         {
             var messageId = await sender.SendAsync(EmailTemplates.DoseAlert(payload.Email, payload.Message), cancellationToken);

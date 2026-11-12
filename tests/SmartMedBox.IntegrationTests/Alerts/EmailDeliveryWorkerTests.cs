@@ -146,6 +146,84 @@ public sealed class EmailDeliveryWorkerTests
         Assert.Equal([(1, EmailDeliveryStatus.Failed), (2, EmailDeliveryStatus.Sent)], attempts.Select(x => (x.AttemptNumber, x.Status)));
     }
 
+    [Fact]
+    public async Task ProcessNextAsync_RelativeRevokedAfterAlertCreated_CancelsOnlyThatDeliveryAndSendsOthers()
+    {
+        await using var env = await AlertTestDatabase.CreateAsync();
+        var box = await SeedAlertAsync(env);
+        var revoked = box.ActiveRelatives[0];
+        await RevokeAsync(env, box, revoked.Id);
+        var sender = new FakeEmailSender();
+
+        await using (var db = env.CreateContext()) await DrainAsync(env.CreateWorker(db, sender));
+
+        Assert.Equal(0, sender.SentCount(revoked.Email));
+        Assert.All(RecipientEmails(box).Where(x => x != revoked.Email), email => Assert.Equal(1, sender.SentCount(email)));
+        await using var verify = env.CreateContext();
+        var revokedRecipientId = await RecipientIdAsync(verify, revoked.Id);
+        var deliveries = await verify.EmailDeliveries.ToListAsync();
+        Assert.Equal(box.ExpectedRecipientIds.Count(), deliveries.Count); // no further attempts created
+        var cancelled = deliveries.Single(x => x.AlertRecipientId == revokedRecipientId);
+        Assert.Equal(EmailDeliveryStatus.Cancelled, cancelled.Status);
+        Assert.Null(cancelled.LockedUntil);
+        Assert.Null(cancelled.SentAt);
+        Assert.All(deliveries.Where(x => x.AlertRecipientId != revokedRecipientId), x => Assert.Equal(EmailDeliveryStatus.Sent, x.Status));
+    }
+
+    [Fact]
+    public async Task ProcessNextAsync_CancelledDelivery_IsNeverReclaimed()
+    {
+        await using var env = await AlertTestDatabase.CreateAsync();
+        var box = await SeedAlertAsync(env, activeRelatives: 1);
+        await RevokeAsync(env, box, box.ActiveRelatives[0].Id);
+        var sender = new FakeEmailSender();
+
+        await using (var db = env.CreateContext())
+        {
+            var worker = env.CreateWorker(db, sender);
+            var results = new[] { await worker.ProcessNextAsync(), await worker.ProcessNextAsync() };
+            Assert.Equal([EmailDeliveryResult.Sent, EmailDeliveryResult.Cancelled], results.Order());
+            env.Clock.UtcNow = env.Clock.UtcNow.AddDays(1);
+            Assert.Equal(EmailDeliveryResult.NoDelivery, await worker.ProcessNextAsync());
+        }
+
+        Assert.Equal(1, sender.SentCount(box.Owner.Email));
+        Assert.Equal(0, sender.SentCount(box.ActiveRelatives[0].Email));
+        await using var verify = env.CreateContext();
+        Assert.Equal(2, await verify.EmailDeliveries.CountAsync());
+        Assert.Equal(1, await verify.EmailDeliveries.CountAsync(x => x.Status == EmailDeliveryStatus.Cancelled));
+    }
+
+    [Fact]
+    public async Task ProcessNextAsync_OwnerUnpairedAfterAlertCreated_CancelsOwnerDelivery()
+    {
+        await using var env = await AlertTestDatabase.CreateAsync();
+        var box = await SeedAlertAsync(env, activeRelatives: 0);
+        await using (var db = env.CreateContext())
+        {
+            await db.Devices.Where(x => x.Id == box.DeviceId).ExecuteUpdateAsync(s => s.SetProperty(x => x.OwnerUserId, (Guid?)null));
+        }
+
+        var sender = new FakeEmailSender();
+        await using (var db = env.CreateContext())
+        {
+            var worker = env.CreateWorker(db, sender);
+            Assert.Equal(EmailDeliveryResult.Cancelled, await worker.ProcessNextAsync());
+            Assert.Equal(EmailDeliveryResult.NoDelivery, await worker.ProcessNextAsync());
+        }
+
+        Assert.Empty(sender.Sent);
+        await using var verify = env.CreateContext();
+        Assert.Equal(EmailDeliveryStatus.Cancelled, (await verify.EmailDeliveries.SingleAsync()).Status);
+    }
+
+    private static async Task RevokeAsync(AlertTestDatabase env, Box box, Guid relativeId)
+    {
+        await using var db = env.CreateContext();
+        await db.CareRelationships.Where(x => x.DeviceId == box.DeviceId && x.RelativeUserId == relativeId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, RelationshipStatus.Revoked).SetProperty(x => x.RevokedAt, env.Clock.UtcNow));
+    }
+
     private static async Task<Box> SeedAlertAsync(AlertTestDatabase env, int activeRelatives = 2)
     {
         var box = await env.SeedBoxAsync(lastSeenAt: env.Clock.UtcNow, activeRelatives: activeRelatives);
