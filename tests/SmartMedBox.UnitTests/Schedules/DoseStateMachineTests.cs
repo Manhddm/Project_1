@@ -70,17 +70,32 @@ public sealed class DoseStateMachineTests
     }
 
     [Fact]
-    public void ApplyLidOpened_AfterOverdue_DoesNotChangeStatus()
+    public void ApplyLidOpened_EarlierValidOpenAfterConfirmation_MovesConfirmedAtBack()
     {
         var dose = NewDose();
-        var machine = CreateMachine(ScheduledAt.AddMinutes(31));
-        machine.EvaluateDeadline(dose, onlineAtDeadline: true);
+        var machine = CreateMachine(ScheduledAt.AddMinutes(20));
+        machine.ApplyLidOpened(dose, CompartmentId, ScheduledAt.AddMinutes(10));
 
-        var result = machine.ApplyLidOpened(dose, CompartmentId, ScheduledAt.AddMinutes(10));
+        var result = machine.ApplyLidOpened(dose, CompartmentId, ScheduledAt.AddMinutes(4));
 
-        Assert.Equal(DoseStatus.Overdue, dose.Status);
-        Assert.Equal(DoseTransitionOutcome.Ignored, result.Outcome);
-        Assert.Equal(DoseTransitionReason.DoseAlreadyResolved, result.Reason);
+        Assert.Equal(DoseStatus.Confirmed, dose.Status);
+        Assert.Equal(ScheduledAt.AddMinutes(4), dose.ConfirmedAt);
+        Assert.Equal(DoseTransitionOutcome.Confirmed, result.Outcome);
+        Assert.Equal(DoseTransitionReason.EarlierOpenInWindow, result.Reason);
+        Assert.Equal(DoseStatus.Confirmed, result.PreviousStatus);
+    }
+
+    [Fact]
+    public void ApplyLidOpened_EarlierOpenOutsideWindowAfterConfirmation_KeepsConfirmedAt()
+    {
+        var dose = NewDose();
+        var machine = CreateMachine(ScheduledAt.AddMinutes(20));
+        machine.ApplyLidOpened(dose, CompartmentId, ScheduledAt.AddMinutes(10));
+
+        var result = machine.ApplyLidOpened(dose, CompartmentId, ScheduledAt.AddMinutes(-1));
+
+        Assert.Equal(ScheduledAt.AddMinutes(10), dose.ConfirmedAt);
+        Assert.Equal(DoseTransitionReason.OutsideConfirmationWindow, result.Reason);
     }
 
     [Fact]
@@ -140,18 +155,36 @@ public sealed class DoseStateMachineTests
     [Theory]
     [InlineData(DoseStatus.Overdue)]
     [InlineData(DoseStatus.Unknown)]
-    public void ApplyLidOpened_LateConfirmation_DoesNotChangeResolvedDose(DoseStatus status)
+    public void ApplyLidOpened_InWindowOpenAfterResolved_ConfirmsLate(DoseStatus status)
     {
         var dose = NewDose();
         dose.Status = status;
-        var machine = CreateMachine(ScheduledAt.AddMinutes(10));
+        var machine = CreateMachine(ScheduledAt.AddHours(2));
 
         var result = machine.ApplyLidOpened(dose, CompartmentId, ScheduledAt.AddMinutes(10));
 
+        Assert.Equal(DoseStatus.Confirmed, dose.Status);
+        Assert.Equal(ScheduledAt.AddMinutes(10), dose.ConfirmedAt);
+        Assert.Equal(DoseTransitionOutcome.Confirmed, result.Outcome);
+        Assert.Equal(DoseTransitionReason.LateConfirmation, result.Reason);
+        Assert.Equal(status, result.PreviousStatus);
+    }
+
+    [Theory]
+    [InlineData(DoseStatus.Overdue)]
+    [InlineData(DoseStatus.Unknown)]
+    public void ApplyLidOpened_OpenAfterDeadlineOnResolvedDose_DoesNotConfirm(DoseStatus status)
+    {
+        var dose = NewDose();
+        dose.Status = status;
+        var machine = CreateMachine(ScheduledAt.AddHours(2));
+
+        var result = machine.ApplyLidOpened(dose, CompartmentId, dose.DeadlineAt.AddSeconds(1));
+
         Assert.Equal(status, dose.Status);
-        Assert.Equal(DoseTransitionOutcome.Ignored, result.Outcome);
-        Assert.Equal(DoseTransitionReason.DoseAlreadyResolved, result.Reason);
         Assert.Null(dose.ConfirmedAt);
+        Assert.Equal(DoseTransitionOutcome.Ignored, result.Outcome);
+        Assert.Equal(DoseTransitionReason.OutsideConfirmationWindow, result.Reason);
     }
 
     private static DoseStateMachine CreateMachine(DateTimeOffset now) => new(new FakeClock(now));

@@ -189,23 +189,132 @@ public sealed class DeviceEventMatchingTests(SqlServerDatabaseFixture fixture) :
         Assert.Equal(Scheduled.AddHours(6), stored.ReceivedAt);
     }
 
-    // [TBD-D24] Mặc định: xác nhận muộn sau Overdue/Unknown không đổi trạng thái, không set ConfirmedAt.
+    // D-24a: event trong cửa sổ đến sau khi dose đã Overdue/Unknown → xác nhận muộn.
     [Theory]
     [InlineData(DoseStatus.Overdue)]
     [InlineData(DoseStatus.Unknown)]
-    public async Task EventsBatch_InWindowOpenArrivesAfterDoseResolved_StatusUnchanged(DoseStatus resolved)
+    public async Task EventsBatch_InWindowOpenArrivesAfterDoseResolved_ConfirmsLate(DoseStatus resolved)
     {
         var setup = await SetupAsync(resolved);
         _clock.UtcNow = Scheduled.AddHours(2);
 
         var results = await SendAsync(setup, Event("after-resolved", 2, "LidOpened", Scheduled.AddMinutes(5)));
 
-        AssertAcceptedUnmatched(results.Single());
-        await AssertDoseAsync(setup.DoseId, resolved, null);
-        await AssertStoredUnmatchedAsync(setup, "after-resolved");
+        AssertConfirmed(results.Single(), "Accepted", setup.DoseId);
+        await AssertDoseAsync(setup.DoseId, DoseStatus.Confirmed, Scheduled.AddMinutes(5));
     }
 
-    private sealed record Setup(WebApplicationFactory<Program> Factory, ProvisioningResult Device, Guid DoseId)
+    [Theory]
+    [InlineData(DoseStatus.Overdue)]
+    [InlineData(DoseStatus.Unknown)]
+    public async Task EventsBatch_OpenAfterDeadlineOnResolvedDose_DoesNotConfirm(DoseStatus resolved)
+    {
+        var setup = await SetupAsync(resolved);
+        _clock.UtcNow = Scheduled.AddHours(2);
+
+        var results = await SendAsync(setup, Event("too-late", 2, "LidOpened", Deadline.AddSeconds(1)));
+
+        AssertAcceptedUnmatched(results.Single());
+        await AssertDoseAsync(setup.DoseId, resolved, null);
+        await AssertStoredUnmatchedAsync(setup, "too-late");
+    }
+
+    // D-24b: xác nhận muộn set ResolvedAt = giờ server xử lý event; không tạo email mới.
+    [Fact]
+    public async Task EventsBatch_LateConfirmationWithAlert_SetsResolvedAtAndCreatesNoEmail()
+    {
+        var setup = await SetupAsync(DoseStatus.Overdue);
+        var alertId = await AddAlertAsync(setup.DoseId);
+        var processedAt = Scheduled.AddHours(3);
+        _clock.UtcNow = processedAt;
+
+        var results = await SendAsync(setup, Event("late-open", 2, "LidOpened", Scheduled.AddMinutes(6)));
+
+        AssertConfirmed(results.Single(), "Accepted", setup.DoseId);
+        await using var db = fixture.CreateContext();
+        var alert = await db.Alerts.AsNoTracking().SingleAsync(x => x.Id == alertId);
+        Assert.Equal(processedAt, alert.ResolvedAt);
+        Assert.Equal(1, await db.Alerts.CountAsync(x => x.DoseInstanceId == setup.DoseId));
+        Assert.False(await db.AlertRecipients.Where(x => x.AlertId == alertId)
+            .Join(db.EmailDeliveries, r => r.Id, d => d.AlertRecipientId, (r, d) => d.Id).AnyAsync());
+    }
+
+    [Fact]
+    public async Task EventsBatch_PendingDoseConfirmedOnTime_LeavesOtherAlertsUnresolved()
+    {
+        var setup = await SetupAsync();
+        var otherDoseId = await AddDoseAsync(setup, Scheduled.AddHours(-1), DoseStatus.Overdue);
+        var alertId = await AddAlertAsync(otherDoseId);
+
+        var results = await SendAsync(setup, Event("on-time", 2, "LidOpened", Scheduled.AddMinutes(1)));
+
+        AssertConfirmed(results.Single(), "Accepted", setup.DoseId);
+        await using var db = fixture.CreateContext();
+        Assert.Null((await db.Alerts.AsNoTracking().SingleAsync(x => x.Id == alertId)).ResolvedAt);
+    }
+
+    // D-24d: lần mở có occurredAt sớm hơn đến ở batch sau → lùi ConfirmedAt, vẫn Confirmed.
+    [Fact]
+    public async Task EventsBatch_EarlierOpenArrivesInLaterBatch_MovesConfirmedAtBack()
+    {
+        var setup = await SetupAsync();
+
+        var first = await SendAsync(setup, Event("open-late", 2, "LidOpened", Scheduled.AddMinutes(10)));
+        var second = await SendAsync(setup, Event("open-early", 2, "LidOpened", Scheduled.AddMinutes(3)));
+        var resend = await SendAsync(setup, Event("open-early", 2, "LidOpened", Scheduled.AddMinutes(3)));
+
+        AssertConfirmed(first.Single(), "Accepted", setup.DoseId);
+        AssertConfirmed(second.Single(), "Accepted", setup.DoseId);
+        AssertConfirmed(resend.Single(), "Duplicate", setup.DoseId);
+        await AssertDoseAsync(setup.DoseId, DoseStatus.Confirmed, Scheduled.AddMinutes(3));
+    }
+
+    [Fact]
+    public async Task EventsBatch_LaterOpenArrivesInLaterBatch_KeepsConfirmedAt()
+    {
+        var setup = await SetupAsync();
+
+        await SendAsync(setup, Event("open-a", 2, "LidOpened", Scheduled.AddMinutes(3)));
+        var later = await SendAsync(setup, Event("open-b", 2, "LidOpened", Scheduled.AddMinutes(9)));
+
+        AssertAcceptedUnmatched(later.Single());
+        await AssertDoseAsync(setup.DoseId, DoseStatus.Confirmed, Scheduled.AddMinutes(3));
+        await AssertStoredUnmatchedAsync(setup, "open-b");
+    }
+
+    // Dose đã xác nhận sớm hơn không được "nuốt" event của dose khác cùng ngăn có cửa sổ giao nhau (dữ liệu trước D-23).
+    [Fact]
+    public async Task EventsBatch_OverlappingDoseAlreadyConfirmedEarlier_ConfirmsOtherPendingDose()
+    {
+        var setup = await SetupAsync();
+        var secondDoseId = await AddDoseAsync(setup, Scheduled.AddMinutes(10), DoseStatus.Pending);
+        await SendAsync(setup, Event("first", 2, "LidOpened", Scheduled.AddMinutes(2)));
+
+        var results = await SendAsync(setup, Event("second", 2, "LidOpened", Scheduled.AddMinutes(12)));
+
+        AssertConfirmed(results.Single(), "Accepted", secondDoseId);
+        await AssertDoseAsync(setup.DoseId, DoseStatus.Confirmed, Scheduled.AddMinutes(2));
+        await AssertDoseAsync(secondDoseId, DoseStatus.Confirmed, Scheduled.AddMinutes(12));
+    }
+
+    [Fact]
+    public async Task EventsBatch_ConcurrentBatchesConfirmSameDose_EarliestOccurredAtWinsWithoutError()
+    {
+        var setup = await SetupAsync();
+        var minutes = new[] { 9, 4, 12, 1, 7, 15, 3, 10 };
+
+        var all = await Task.WhenAll(minutes.Select(m =>
+            SendAsync(setup, Event($"conc-{m}", 2, "LidOpened", Scheduled.AddMinutes(m)))));
+
+        var rows = all.SelectMany(x => x).ToList();
+        Assert.All(rows, r => Assert.Equal("Accepted", r.Status));
+        Assert.Contains(rows, r => r.EventId == "conc-1" && r.MatchedDoseInstanceId == setup.DoseId);
+        await AssertDoseAsync(setup.DoseId, DoseStatus.Confirmed, Scheduled.AddMinutes(1));
+        await using var db = fixture.CreateContext();
+        Assert.Equal(minutes.Length, await db.DeviceEvents.CountAsync(x => x.DeviceId == setup.DeviceKey));
+    }
+
+    private sealed record Setup(WebApplicationFactory<Program> Factory, ProvisioningResult Device, Guid DoseId, Guid ScheduleId, Guid CompartmentId)
     {
         public Guid DeviceKey => Device.Provisioned.Device.Id;
     }
@@ -252,7 +361,42 @@ public sealed class DeviceEventMatchingTests(SqlServerDatabaseFixture fixture) :
         db.MedicationSchedules.Add(schedule);
         db.DoseInstances.Add(dose);
         await db.SaveChangesAsync();
-        return new Setup(factory, device, dose.Id);
+        return new Setup(factory, device, dose.Id, schedule.Id, compartmentId);
+    }
+
+    private async Task<Guid> AddDoseAsync(Setup setup, DateTimeOffset scheduledAt, DoseStatus status)
+    {
+        await using var db = fixture.CreateContext();
+        var dose = new DoseInstance
+        {
+            Id = Guid.NewGuid(),
+            ScheduleId = setup.ScheduleId,
+            DeviceId = setup.DeviceKey,
+            CompartmentId = setup.CompartmentId,
+            ScheduledAt = scheduledAt,
+            GracePeriodMinutes = 15,
+            DeadlineAt = scheduledAt.AddMinutes(15),
+            Status = status,
+        };
+        db.DoseInstances.Add(dose);
+        await db.SaveChangesAsync();
+        return dose.Id;
+    }
+
+    private async Task<Guid> AddAlertAsync(Guid doseId)
+    {
+        await using var db = fixture.CreateContext();
+        var alert = new Alert
+        {
+            Id = Guid.NewGuid(),
+            DoseInstanceId = doseId,
+            AlertType = AlertType.OverdueUnconfirmed,
+            Message = "Quá hạn chưa xác nhận",
+            CreatedAt = Deadline.AddMinutes(1),
+        };
+        db.Alerts.Add(alert);
+        await db.SaveChangesAsync();
+        return alert.Id;
     }
 
     private static object Event(string eventId, int slot, string type, DateTimeOffset occurredAt) =>

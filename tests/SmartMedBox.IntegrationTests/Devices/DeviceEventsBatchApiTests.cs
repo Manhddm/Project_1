@@ -180,6 +180,55 @@ public sealed class DeviceEventsBatchApiTests(SqlServerDatabaseFixture fixture) 
         Assert.Equal(20, await db.DeviceEvents.CountAsync(x => x.DeviceId == device.Provisioned.Device.Id));
     }
 
+    [Fact]
+    public async Task EventsBatch_OccurredAtOutsideClockSkewWindow_RejectedEventTimeInvalidAndNotStored()
+    {
+        using var factory = CreateFactory();
+        var device = await ProvisionPairedAsync(factory);
+        using var client = TestUsers.CreateClient(factory);
+
+        var results = await SendAsync(client, device,
+        [
+            Event("future-edge", 1, "LidOpened", Now.AddMinutes(5)),
+            Event("future-over", 1, "LidOpened", Now.AddMinutes(5).AddSeconds(1)),
+            Event("old-edge", 2, "LidOpened", Now.AddDays(-30)),
+            Event("old-over", 2, "LidOpened", Now.AddDays(-30).AddSeconds(-1)),
+        ]);
+
+        Assert.Equal(
+            [
+                ("future-edge", "Accepted", null), ("future-over", "Rejected", "EVENT_TIME_INVALID"),
+                ("old-edge", "Accepted", null), ("old-over", "Rejected", "EVENT_TIME_INVALID"),
+            ],
+            results.Select(r => (r.EventId, r.Status, r.Code)));
+        await using var db = fixture.CreateContext();
+        var stored = await db.DeviceEvents.AsNoTracking()
+            .Where(x => x.DeviceId == device.Provisioned.Device.Id).Select(x => x.EventId).OrderBy(x => x).ToListAsync();
+        Assert.Equal(["future-edge", "old-edge"], stored);
+    }
+
+    [Fact]
+    public async Task EventsBatch_ConfiguredClockSkewThresholds_AppliedFromOptions()
+    {
+        using var factory = CreateFactory().WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services => services.Configure<DeviceEventTimeOptions>(options =>
+            {
+                options.MaxFutureSkew = TimeSpan.FromMinutes(1);
+                options.MaxAge = TimeSpan.FromDays(1);
+            })));
+        var device = await ProvisionPairedAsync(factory);
+        using var client = TestUsers.CreateClient(factory);
+
+        var results = await SendAsync(client, device,
+        [
+            Event("cfg-future", 1, "LidOpened", Now.AddMinutes(2)),
+            Event("cfg-old", 1, "LidOpened", Now.AddDays(-2)),
+            Event("cfg-ok", 1, "LidOpened", Now.AddHours(-1)),
+        ]);
+
+        Assert.Equal(["Rejected", "Rejected", "Accepted"], results.Select(r => r.Status));
+    }
+
     private sealed record ResultRow(string EventId, string Status, string? Code);
 
     private async Task<List<(string EventId, DateTimeOffset OccurredAt, int Slot, DeviceEventType Type)>> SendToFreshDeviceAsync(object[] events)
