@@ -21,7 +21,7 @@ namespace SmartMedBox.IntegrationTests.Prescriptions;
 public sealed class PrescriptionUploadApiTests(SqlServerDatabaseFixture fixture) : IClassFixture<SqlServerDatabaseFixture>
 {
     private const string Url = "/api/prescriptions/images";
-    private const string Gps = "GPS 21.0285N 105.8542E";
+    internal const string Gps = "GPS 21.0285N 105.8542E";
 
     [Fact]
     public async Task Upload_Owner_Returns201_StoresCleanFileOutsideWebRootAndMetadataOnly()
@@ -185,7 +185,7 @@ public sealed class PrescriptionUploadApiTests(SqlServerDatabaseFixture fixture)
         Assert.False(await db.PrescriptionImages.AnyAsync(x => x.OwnerUserId == ownerId));
     }
 
-    private static MultipartFormDataContent Multipart(byte[] data, string fileName, string contentType = "image/jpeg")
+    internal static MultipartFormDataContent Multipart(byte[] data, string fileName, string contentType = "image/jpeg")
     {
         var file = new ByteArrayContent(data);
         file.Headers.ContentType = new MediaTypeHeaderValue(contentType);
@@ -193,7 +193,7 @@ public sealed class PrescriptionUploadApiTests(SqlServerDatabaseFixture fixture)
     }
 
     // JPEG tối giản: JFIF + EXIF có GPS + bảng/khung/scan giả + EOI.
-    private static byte[] JpegWithGps() =>
+    internal static byte[] JpegWithGps() =>
     [
         0xFF, 0xD8,
         .. Segment(0xE0, [.. "JFIF\0"u8, 1, 1, 0, 0, 1, 0, 1, 0, 0]),
@@ -206,7 +206,7 @@ public sealed class PrescriptionUploadApiTests(SqlServerDatabaseFixture fixture)
     ];
 
     // JPEG hợp lệ cấu trúc có kích thước đúng bằng size (đệm bằng các segment COM).
-    private static byte[] PaddedJpeg(int size)
+    internal static byte[] PaddedJpeg(int size)
     {
         var head = JpegWithGps()[..^2];
         var result = new byte[size];
