@@ -87,6 +87,17 @@ $env:ConnectionStrings__Default = "Server=<host>;Database=SmartMedBox;User Id=<u
 $env:Security__TokenPepper = "<pepper-ngẫu-nhiên-≥32-ký-tự>"
 ```
 
+Email (D-03): `Email:Provider` = `FileSink` (mặc định — ghi `.eml` vào `EmailSink:DirectoryPath`, dùng cho dev/test) hoặc `Smtp`. Khi chọn `Smtp`, API kiểm tra cấu hình lúc khởi động và dừng nếu thiếu/sai. Các khóa `Email:Smtp:*`: `Host` (bắt buộc), `Port` (mặc định 587), `EnableSsl` (mặc định `true`), `FromAddress` (bắt buộc, cũng là domain của `Message-ID`), `FromName`, `UserName` + `Password` (đặt cùng nhau, **chỉ** qua user-secrets/env), `PickupDirectory` (tùy chọn: ghi `.eml` ra thư mục thay vì gửi qua mạng, để chẩn đoán). Mỗi lần gửi sinh header `Message-ID`, lưu vào `EmailDeliveries.ProviderMessageId`. Retry (D-13): tối đa 5 lần, chờ 1 → 5 → 15 → 60 phút, lease 2 phút — mặc định trong `EmailRetryPolicyOptions`/`EmailDeliveryWorkerOptions`.
+
+```bash
+dotnet user-secrets set "Email:Provider" "Smtp" --project src/SmartMedBox.Api
+dotnet user-secrets set "Email:Smtp:Host" "<smtp-host>" --project src/SmartMedBox.Api
+dotnet user-secrets set "Email:Smtp:FromAddress" "<no-reply@domain>" --project src/SmartMedBox.Api
+dotnet user-secrets set "Email:Smtp:UserName" "<user>" --project src/SmartMedBox.Api
+dotnet user-secrets set "Email:Smtp:Password" "<password>" --project src/SmartMedBox.Api
+# env: Email__Provider=Smtp, Email__Smtp__Host=..., Email__Smtp__Password=...
+```
+
 Quy ước khác: `SMARTMEDBOX_CONNECTION` cho lệnh `dotnet ef` (design-time) và `SMARTMEDBOX_TEST_SERVER` cho integration test (xem mục Chạy test). Không log hoặc dán các giá trị này vào issue/PR.
 
 ## Chạy test

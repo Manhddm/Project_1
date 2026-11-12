@@ -9,10 +9,10 @@ public sealed class RecordingEmailSender : IEmailSender
 
     public IReadOnlyCollection<EmailMessage> Messages => _messages.ToArray();
 
-    public Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
+    public Task<string> SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
     {
         _messages.Enqueue(message);
-        return Task.CompletedTask;
+        return Task.FromResult(EmailHeaders.NewMessageId("recording@test.local"));
     }
 
     public EmailMessage SingleTo(string email) =>

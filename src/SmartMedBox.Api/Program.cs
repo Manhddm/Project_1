@@ -99,7 +99,21 @@ builder.Services.AddHttpLogging(options =>
 builder.Services.AddAppHealthChecks();
 
 builder.Services.AddSingleton<IClock, SystemClock>();
-builder.Services.AddSingleton<IEmailSender, FileEmailSender>();
+// D-03: Email:Provider = FileSink (default, dev) | Smtp. Smtp options are validated here so startup fails fast.
+switch (builder.Configuration["Email:Provider"] ?? "FileSink")
+{
+    case "FileSink":
+        builder.Services.AddSingleton<IEmailSender, FileEmailSender>();
+        break;
+    case "Smtp":
+        var smtpOptions = builder.Configuration.GetSection(SmtpEmailOptions.SectionName).Get<SmtpEmailOptions>() ?? new SmtpEmailOptions();
+        smtpOptions.Validate();
+        builder.Services.Configure<SmtpEmailOptions>(builder.Configuration.GetSection(SmtpEmailOptions.SectionName));
+        builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        break;
+    default:
+        throw new InvalidOperationException("Email:Provider must be FileSink or Smtp.");
+}
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasherService>();
 builder.Services.AddSingleton<IUserSessionStore, InMemoryUserSessionStore>();

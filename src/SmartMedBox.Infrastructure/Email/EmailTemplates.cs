@@ -34,6 +34,10 @@ public static class EmailTemplates
             Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.
             """);
 
+    // Body is the alert message already worded "đã mở/đã xác nhận" by the evaluation job (AGENTS §2.2).
+    public static EmailMessage DoseAlert(string to, string alertMessage) =>
+        new(to, "Cảnh báo lần uống từ Hộp thuốc thông minh", alertMessage);
+
     public static EmailMessage RelativeInvitation(string to, string token, TimeSpan lifetime) =>
         new(
             to,
