@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SmartMedBox.Domain.Abstractions;
 using SmartMedBox.Domain.Devices;
@@ -51,6 +52,15 @@ public sealed record ScheduleView(
     IReadOnlyList<ScheduleItemView> Items,
     int Version);
 
+public enum ScheduleSyncOutcome
+{
+    Changed,
+    NotModified,
+    DeviceNotPaired,
+}
+
+public sealed record ScheduleSyncPackage(int Version, IReadOnlyList<ScheduleView> Schedules);
+
 public sealed record ScheduleWriteResult(ScheduleOutcome Outcome, Guid ScheduleId = default, int ScheduleVersion = 0);
 
 /// <summary>
@@ -76,6 +86,41 @@ public sealed class ScheduleService(AppDbContext db, DeviceAccessService access,
             .Select(x => x.Id)
             .ToListAsync(cancellationToken);
         return (ScheduleOutcome.Ok, await LoadViewsAsync(ids, cancellationToken));
+    }
+
+    /// <summary>
+    /// P3-04: gói lịch hiện hành cho thiết bị (API_CONTRACT §9.2); <paramref name="deviceId"/> lấy từ xác thực thiết bị.
+    /// </summary>
+    public async Task<(ScheduleSyncOutcome Outcome, ScheduleSyncPackage? Package)> GetSyncPackageAsync(
+        Guid deviceId,
+        int clientVersion,
+        CancellationToken cancellationToken = default)
+    {
+        // RepeatableRead giữ khóa S trên hàng Devices tới khi commit; mọi lần ghi lịch tăng version (khóa X hàng đó)
+        // ở lệnh đầu tiên của transaction, nên version và lịch luôn đọc từ cùng một trạng thái đã commit.
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
+        var device = await db.Devices.AsNoTracking()
+            .Where(x => x.Id == deviceId)
+            .Select(x => new { x.OwnerUserId, x.ScheduleVersion })
+            .SingleAsync(cancellationToken);
+        if (device.OwnerUserId is null)
+        {
+            return (ScheduleSyncOutcome.DeviceNotPaired, null);
+        }
+
+        if (device.ScheduleVersion == clientVersion)
+        {
+            return (ScheduleSyncOutcome.NotModified, null);
+        }
+
+        var ids = await db.MedicationSchedules
+            .AsNoTracking()
+            .Where(x => x.DeviceId == deviceId && !x.IsDeleted)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+        var views = await LoadViewsAsync(ids, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return (ScheduleSyncOutcome.Changed, new ScheduleSyncPackage(device.ScheduleVersion, views));
     }
 
     public async Task<(ScheduleOutcome Outcome, ScheduleView? Schedule)> GetAsync(

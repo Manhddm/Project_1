@@ -23,3 +23,23 @@ public sealed record DeviceEventResultDto(
     string? DoseStatus);
 
 public sealed record DeviceEventBatchResponse(DateTimeOffset ServerTimeUtc, IReadOnlyList<DeviceEventResultDto> Results);
+
+// API_CONTRACT §9.2: timeZoneId thuộc từng lịch, không có timezone cấp gói.
+public sealed record ScheduleSyncItemDto(string MedicineName, decimal Quantity, string Unit, string Instructions);
+
+public sealed record ScheduleSyncScheduleDto(
+    Guid Id,
+    int CompartmentSlot,
+    string TimeOfDay,
+    IReadOnlyList<int> DaysOfWeek,
+    DateOnly StartDate,
+    DateOnly? EndDate,
+    int GracePeriodMinutes,
+    string TimeZoneId,
+    IReadOnlyList<ScheduleSyncItemDto> Items);
+
+public sealed record ScheduleSyncResponse(
+    int Version,
+    DateTimeOffset ServerTimeUtc,
+    DateTimeOffset GeneratedAtUtc,
+    IReadOnlyList<ScheduleSyncScheduleDto> Schedules);

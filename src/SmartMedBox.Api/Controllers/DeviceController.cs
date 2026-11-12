@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ using SmartMedBox.Domain.Devices;
 using SmartMedBox.Domain.Enums;
 using SmartMedBox.Infrastructure.Data;
 using SmartMedBox.Infrastructure.Devices;
+using SmartMedBox.Infrastructure.Schedules;
 
 namespace SmartMedBox.Api.Controllers;
 
@@ -44,6 +46,51 @@ public sealed class DeviceController(AppDbContext db, IClock clock, DeviceConnec
             now,
             paired ? device.ScheduleVersion : 0,
             NextHeartbeatSeconds));
+    }
+
+    [HttpGet("schedule-sync")]
+    public async Task<IActionResult> ScheduleSync(
+        [FromQuery] int? version,
+        [FromServices] ScheduleService schedules,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirst(DeviceAuthenticationHandler.DeviceKeyClaim)?.Value, out var deviceKey))
+        {
+            return ApiProblemResults.Create(HttpContext, StatusCodes.Status401Unauthorized, ErrorCodes.DeviceUnauthorized);
+        }
+
+        if (version is null)
+        {
+            return ApiProblemResults.Validation(HttpContext, "version", "version là bắt buộc.");
+        }
+
+        var (outcome, package) = await schedules.GetSyncPackageAsync(deviceKey, version.Value, cancellationToken);
+        if (outcome == ScheduleSyncOutcome.DeviceNotPaired)
+        {
+            return ApiProblemResults.Create(HttpContext, StatusCodes.Status409Conflict, ErrorCodes.DeviceNotPaired);
+        }
+
+        if (outcome == ScheduleSyncOutcome.NotModified)
+        {
+            return NoContent();
+        }
+
+        var now = clock.UtcNow;
+        return Ok(new ScheduleSyncResponse(
+            package!.Version,
+            now,
+            now,
+            package.Schedules.Select(x => new ScheduleSyncScheduleDto(
+                    x.Id,
+                    x.CompartmentSlot,
+                    x.TimeOfDay.ToString("HH:mm", CultureInfo.InvariantCulture),
+                    x.DaysOfWeek,
+                    x.StartDate,
+                    x.EndDate,
+                    x.GracePeriodMinutes,
+                    x.TimeZoneId,
+                    x.Items.Select(i => new ScheduleSyncItemDto(i.MedicineName, i.Quantity, i.Unit, i.Instructions)).ToList()))
+                .ToList()));
     }
 
     [HttpPost("events/batch")]
