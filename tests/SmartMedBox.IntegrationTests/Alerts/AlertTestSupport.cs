@@ -32,6 +32,8 @@ internal sealed class AlertTestDatabase : IAsyncDisposable
 
     public AppDbContext CreateContext() => _fixture.CreateContext();
 
+    public string ConnectionString => _fixture.ConnectionString;
+
     public AlertEvaluationService CreateEvaluator(AppDbContext db) =>
         new(db, Clock, new DeviceConnectivityService(db, Options.Create(new DeviceConnectivityOptions())));
 

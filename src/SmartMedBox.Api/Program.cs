@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using SmartMedBox.Api.BackgroundJobs;
 using SmartMedBox.Api.Errors;
 using SmartMedBox.Api.Observability;
 using SmartMedBox.Api.Routing;
@@ -133,6 +134,8 @@ builder.Services.AddScoped<LoginService>();
 builder.Services.AddScoped<RelativeInvitationService>();
 builder.Services.AddScoped<CareRelationshipService>();
 builder.Services.AddScoped<PrescriptionImageService>();
+// D-11/D-12/D-13/D-26: job nền (sinh dose, đánh giá quá hạn, gửi email) + options; tắt bằng BackgroundJobs:Enabled=false.
+builder.Services.AddBackgroundJobs(builder.Configuration);
 
 builder.Services.Configure<EmailSinkOptions>(options =>
     options.DirectoryPath = ResolveContentPath(

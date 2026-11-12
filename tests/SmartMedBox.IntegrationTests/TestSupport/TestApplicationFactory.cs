@@ -34,6 +34,8 @@ public sealed class TestApplicationFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Default", _connectionString);
         builder.UseSetting("Security:TokenPepper", TestTokenPepper);
+        // Job nền quét toàn bảng; test gọi service trực tiếp. Test riêng bật lại qua WithWebHostBuilder.
+        builder.UseSetting("BackgroundJobs:Enabled", "false");
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IEmailSender>();

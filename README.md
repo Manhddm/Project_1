@@ -100,6 +100,22 @@ dotnet user-secrets set "Email:Smtp:Password" "<password>" --project src/SmartMe
 
 Quy ước khác: `SMARTMEDBOX_CONNECTION` cho lệnh `dotnet ef` (design-time) và `SMARTMEDBOX_TEST_SERVER` cho integration test (xem mục Chạy test). Không log hoặc dán các giá trị này vào issue/PR.
 
+## Job nền (D-11, D-12, D-13, D-26)
+
+Ba job chạy trong process Web (`BackgroundService`), mỗi lần chạy một DI scope mới; an toàn khi nhiều instance chạy song song nên không cần khóa phân tán. Lỗi chỉ log loại exception (không PII), job tiếp tục ở chu kỳ sau.
+
+| Khóa cấu hình | Mặc định | Ghi chú |
+|---|---|---|
+| `BackgroundJobs:Enabled` | `true` | `false` tắt cả ba job (host integration test đặt `false`) |
+| `BackgroundJobs:DoseGenerationInterval` | `00:15:00` | D-11; sinh dose cho `[now − 24h, now + 48h]`, chạy ngay khi khởi động |
+| `BackgroundJobs:AlertEvaluationInterval` | `00:01:00` | [ĐỀ XUẤT]; kết nối tại `DeadlineAt` theo `DeviceConnectivity:OfflineThreshold` (D-12, `00:05:00`) |
+| `BackgroundJobs:EmailDeliveryIdleDelay` | `00:00:10` | [ĐỀ XUẤT]; gửi liên tục tới khi hết delivery đến hạn rồi chờ |
+| `EmailRetryPolicy:MaxAttempts` | `5` | D-13 |
+| `EmailRetryPolicy:RetryDelays` | `00:01:00`, `00:05:00`, `00:15:00`, `01:00:00` | D-13; cấu hình thì thay toàn bộ danh sách |
+| `EmailDeliveryWorker:LeaseDuration` | `00:02:00` | D-13 (`LockedUntil`) |
+| `DeviceEventTime:MaxFutureSkew` | `00:05:00` | D-26 |
+| `DeviceEventTime:MaxAge` | `30.00:00:00` | D-26 |
+
 ## Chạy test
 
 ```bash
