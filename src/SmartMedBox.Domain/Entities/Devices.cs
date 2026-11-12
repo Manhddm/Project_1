@@ -13,6 +13,15 @@ public sealed class Device
     public int ScheduleVersion { get; set; }
 }
 
+/// <summary>D-12: one continuous online session; heartbeats extend it while gaps stay within the offline threshold.</summary>
+public sealed class DeviceConnectivityWindow
+{
+    public Guid Id { get; set; }
+    public Guid DeviceId { get; set; }
+    public DateTimeOffset OnlineFrom { get; set; }
+    public DateTimeOffset LastSeenAt { get; set; }
+}
+
 public sealed class DevicePairingCode
 {
     public Guid Id { get; set; }

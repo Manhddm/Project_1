@@ -48,7 +48,7 @@ public sealed class EmailDeliveryConfiguration : IEntityTypeConfiguration<EmailD
         builder.ToTable("EmailDeliveries", table =>
             table.HasCheckConstraint(
                 "CK_EmailDeliveries_Status",
-                "[Status] IN (N'Pending', N'Sent', N'Failed', N'Exhausted')"));
+                "[Status] IN (N'Pending', N'Sent', N'Failed', N'Exhausted', N'Cancelled')"));
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
         builder.Property(x => x.Status)

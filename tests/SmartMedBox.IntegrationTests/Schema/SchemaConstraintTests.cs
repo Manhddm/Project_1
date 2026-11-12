@@ -11,7 +11,7 @@ public sealed class SchemaConstraintTests(SqlServerDatabaseFixture fixture)
     private static readonly string[] ExpectedTables =
     [
         "AlertRecipients", "Alerts", "ApplicationUsers", "AuditLogs", "AuthTokens", "CareRelationships",
-        "Compartments", "DeviceEvents", "DevicePairingCodes", "Devices", "DoseInstances",
+        "Compartments", "DeviceConnectivityWindows", "DeviceEvents", "DevicePairingCodes", "Devices", "DoseInstances",
         "DoseItemSnapshots", "EmailDeliveries", "MedicationSchedules", "PrescriptionImages",
         "RelativeInvitations", "ScheduleDays", "ScheduleItems",
     ];
@@ -185,6 +185,28 @@ public sealed class SchemaConstraintTests(SqlServerDatabaseFixture fixture)
 
         db.EmailDeliveries.Add(NewDelivery(recipient.Id, attemptNumber: 1));
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    [Theory]
+    [InlineData(EmailDeliveryStatus.Cancelled, true)]
+    [InlineData((EmailDeliveryStatus)99, false)]
+    public async Task EmailDeliveries_StatusCheckConstraint_AcceptsCancelledRejectsUnknown(EmailDeliveryStatus status, bool accepted)
+    {
+        await using var db = fixture.CreateContext();
+        var dose = await SeedDoseAsync(db);
+        var recipientUser = NewUser();
+        db.ApplicationUsers.Add(recipientUser);
+        var alert = NewAlert(dose.Id, AlertType.OverdueUnconfirmed);
+        db.Alerts.Add(alert);
+        var recipient = NewRecipient(alert.Id, recipientUser.Id);
+        db.AlertRecipients.Add(recipient);
+        await db.SaveChangesAsync();
+
+        var delivery = NewDelivery(recipient.Id, attemptNumber: 1);
+        delivery.Status = status;
+        db.EmailDeliveries.Add(delivery);
+        if (accepted) await db.SaveChangesAsync();
+        else await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
     [Fact]
@@ -406,6 +428,7 @@ public sealed class SchemaConstraintTests(SqlServerDatabaseFixture fixture)
     [InlineData("IX_DeviceEvents_DeviceId_OccurredAt")]
     [InlineData("IX_EmailDeliveries_Status_NextAttemptAt")]
     [InlineData("IX_MedicationSchedules_DeviceId_IsDeleted")]
+    [InlineData("IX_DeviceConnectivityWindows_DeviceId_LastSeenAt")]
     public async Task HotPathIndex_Exists(string indexName)
     {
         await using var db = fixture.CreateContext();

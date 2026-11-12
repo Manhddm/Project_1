@@ -657,3 +657,55 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112101152_AddConnectivityWindowsAndCancelledDelivery'
+)
+BEGIN
+    ALTER TABLE [EmailDeliveries] DROP CONSTRAINT [CK_EmailDeliveries_Status];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112101152_AddConnectivityWindowsAndCancelledDelivery'
+)
+BEGIN
+    CREATE TABLE [DeviceConnectivityWindows] (
+        [Id] uniqueidentifier NOT NULL DEFAULT (NEWSEQUENTIALID()),
+        [DeviceId] uniqueidentifier NOT NULL,
+        [OnlineFrom] datetimeoffset NOT NULL,
+        [LastSeenAt] datetimeoffset NOT NULL,
+        CONSTRAINT [PK_DeviceConnectivityWindows] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_DeviceConnectivityWindows_Devices_DeviceId] FOREIGN KEY ([DeviceId]) REFERENCES [Devices] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112101152_AddConnectivityWindowsAndCancelledDelivery'
+)
+BEGIN
+    EXEC(N'ALTER TABLE [EmailDeliveries] ADD CONSTRAINT [CK_EmailDeliveries_Status] CHECK ([Status] IN (N''Pending'', N''Sent'', N''Failed'', N''Exhausted'', N''Cancelled''))');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112101152_AddConnectivityWindowsAndCancelledDelivery'
+)
+BEGIN
+    CREATE INDEX [IX_DeviceConnectivityWindows_DeviceId_LastSeenAt] ON [DeviceConnectivityWindows] ([DeviceId], [LastSeenAt]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261112101152_AddConnectivityWindowsAndCancelledDelivery'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261112101152_AddConnectivityWindowsAndCancelledDelivery', N'10.0.11');
+END;
+
+COMMIT;
+GO
+

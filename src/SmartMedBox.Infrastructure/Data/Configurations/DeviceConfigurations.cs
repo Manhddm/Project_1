@@ -23,6 +23,20 @@ public sealed class DeviceConfiguration : IEntityTypeConfiguration<Device>
     }
 }
 
+public sealed class DeviceConnectivityWindowConfiguration : IEntityTypeConfiguration<DeviceConnectivityWindow>
+{
+    public void Configure(EntityTypeBuilder<DeviceConnectivityWindow> builder)
+    {
+        builder.ToTable("DeviceConnectivityWindows");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasDefaultValueSql("NEWSEQUENTIALID()");
+        builder.Property(x => x.OnlineFrom).IsRequired();
+        builder.Property(x => x.LastSeenAt).IsRequired();
+        builder.HasOne<Device>().WithMany().HasForeignKey(x => x.DeviceId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => new { x.DeviceId, x.LastSeenAt });
+    }
+}
+
 public sealed class DevicePairingCodeConfiguration : IEntityTypeConfiguration<DevicePairingCode>
 {
     public void Configure(EntityTypeBuilder<DevicePairingCode> builder)

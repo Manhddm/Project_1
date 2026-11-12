@@ -46,6 +46,7 @@ public enum EmailDeliveryStatus
     Sent,
     Failed,
     Exhausted,
+    Cancelled,
 }
 
 public enum AuthTokenPurpose

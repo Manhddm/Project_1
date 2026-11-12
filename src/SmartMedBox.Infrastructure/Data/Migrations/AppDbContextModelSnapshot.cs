@@ -334,6 +334,29 @@ namespace SmartMedBox.Infrastructure.Data.Migrations
                     b.ToTable("Devices", (string)null);
                 });
 
+            modelBuilder.Entity("SmartMedBox.Domain.Entities.DeviceConnectivityWindow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("OnlineFrom")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceId", "LastSeenAt");
+
+                    b.ToTable("DeviceConnectivityWindows", (string)null);
+                });
+
             modelBuilder.Entity("SmartMedBox.Domain.Entities.DeviceEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -547,7 +570,7 @@ namespace SmartMedBox.Infrastructure.Data.Migrations
 
                     b.ToTable("EmailDeliveries", null, t =>
                         {
-                            t.HasCheckConstraint("CK_EmailDeliveries_Status", "[Status] IN (N'Pending', N'Sent', N'Failed', N'Exhausted')");
+                            t.HasCheckConstraint("CK_EmailDeliveries_Status", "[Status] IN (N'Pending', N'Sent', N'Failed', N'Exhausted', N'Cancelled')");
                         });
                 });
 
@@ -813,6 +836,15 @@ namespace SmartMedBox.Infrastructure.Data.Migrations
                         .WithMany()
                         .HasForeignKey("OwnerUserId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SmartMedBox.Domain.Entities.DeviceConnectivityWindow", b =>
+                {
+                    b.HasOne("SmartMedBox.Domain.Entities.Device", null)
+                        .WithMany()
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SmartMedBox.Domain.Entities.DeviceEvent", b =>

@@ -2,7 +2,7 @@
 
 > Phiên bản: 1.1 · Ngày: 2026-10-29 · Nguồn: HTML §CSDL, [AGENTS.md](AGENTS.md) §3.3
 >
-> 17 bảng nghiệp vụ = 18 bảng HTML trừ `RefreshTokens` (D-02 dùng cookie session), cộng `AuthTokens` (bổ sung kỹ thuật cho token xác minh email/đặt lại mật khẩu — P1-02/P1-04). Migrations: `InitialSchema`, `AddScheduleDateRangeCheck`, `AddAuthTokens`. Snapshot SQL: [schema.sql](schema.sql).
+> 18 bảng nghiệp vụ = 18 bảng HTML trừ `RefreshTokens` (D-02 dùng cookie session), cộng `AuthTokens` (bổ sung kỹ thuật cho token xác minh email/đặt lại mật khẩu — P1-02/P1-04) và `DeviceConnectivityWindows` (phiên kết nối D-12). Migrations: `InitialSchema`, `AddScheduleDateRangeCheck`, `AddAuthTokens`, `AddConnectivityWindowsAndCancelledDelivery`. Snapshot SQL: [schema.sql](schema.sql).
 
 ## 1. Bảng → Entity
 
@@ -13,6 +13,7 @@
 | `CareRelationships` | `CareRelationship` | Unique filtered cặp Active |
 | `RelativeInvitations` | `RelativeInvitation` | Unique filtered Pending theo `(DeviceId, InviteeEmail)` |
 | `Devices` | `Device` | `DeviceId`/`SerialNumber` unique; owner unique filtered |
+| `DeviceConnectivityWindows` | `DeviceConnectivityWindow` | Phiên kết nối D-12 `(OnlineFrom, LastSeenAt)`; heartbeat kéo dài phiên nếu cách ≤ 5 phút, ngược lại mở phiên mới |
 | `DevicePairingCodes` | `DevicePairingCode` | `CodeHash` unique; dùng một lần |
 | `Compartments` | `Compartment` | Unique `(DeviceId, SlotNumber)`, check 1–3 |
 | `DeviceEvents` | `DeviceEvent` | Unique `(DeviceId, EventId)`; append-only |
@@ -43,6 +44,7 @@
 | `IX_DeviceEvents_DeviceId_OccurredAt` | Lịch sử/ghép sự kiện |
 | `IX_EmailDeliveries_Status_NextAttemptAt` | Worker retry email |
 | `IX_MedicationSchedules_DeviceId_IsDeleted` | `schedule-sync` |
+| `IX_DeviceConnectivityWindows_DeviceId_LastSeenAt` | Đánh giá online tại `DeadlineAt` (D-12) |
 | `IX_AuthTokens_UserId_Purpose_ExpiresAt` | Vô hiệu token cũ khi resend/gửi lại |
 
 ## 4. Quyết định kỹ thuật trong schema
@@ -52,5 +54,6 @@
 - `EmailDelivery.LockedUntil` là bổ sung kỹ thuật bắt buộc bởi [AGENTS.md](AGENTS.md) §4.4 (claim/lease, an toàn nhiều worker); HTML không liệt kê cột này.
 - `DoseInstances` unique `(ScheduleId, ScheduledAt)` là [ĐỀ XUẤT KỸ THUẬT] để job sinh dose chạy lặp/song song không nhân đôi (AGENTS §9.1).
 - Giá trị enum theo [API_CONTRACT.md §10.2](API_CONTRACT.md#enums) — **D-09 đã chốt 2026-10-29**; check constraint trong `InitialSchema` khớp đúng các giá trị này.
-- `Devices.LastSeenAt` cho phép NULL = chưa từng thấy/offline (AGENTS §3.3).
+- `Devices.LastSeenAt` cho phép NULL = chưa từng thấy/offline (AGENTS §3.3); chỉ dùng cho `isOnline` hiện tại. Online tại `DeadlineAt` lấy từ `DeviceConnectivityWindows` (D-12): có phiên `OnlineFrom ≤ DeadlineAt` và `LastSeenAt ≥ DeadlineAt − 5 phút`.
+- `EmailDeliveries.Status` có thêm `Cancelled` (D-24c, migration `AddConnectivityWindowsAndCancelledDelivery`).
 - `PrescriptionImages` không có cột nhị phân; file nằm ngoài CSDL (D-04).

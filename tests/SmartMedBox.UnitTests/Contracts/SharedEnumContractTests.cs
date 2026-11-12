@@ -30,5 +30,5 @@ public sealed class SharedEnumContractTests
 
     [Fact]
     public void EmailDeliveryStatus_Values_MatchContract() =>
-        Assert.Equal(new[] { "Pending", "Sent", "Failed", "Exhausted" }, Enum.GetNames<EmailDeliveryStatus>());
+        Assert.Equal(new[] { "Pending", "Sent", "Failed", "Exhausted", "Cancelled" }, Enum.GetNames<EmailDeliveryStatus>());
 }

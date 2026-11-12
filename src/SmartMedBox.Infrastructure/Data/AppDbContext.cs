@@ -10,6 +10,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<CareRelationship> CareRelationships => Set<CareRelationship>();
     public DbSet<RelativeInvitation> RelativeInvitations => Set<RelativeInvitation>();
     public DbSet<Device> Devices => Set<Device>();
+    public DbSet<DeviceConnectivityWindow> DeviceConnectivityWindows => Set<DeviceConnectivityWindow>();
     public DbSet<DevicePairingCode> DevicePairingCodes => Set<DevicePairingCode>();
     public DbSet<Compartment> Compartments => Set<Compartment>();
     public DbSet<DeviceEvent> DeviceEvents => Set<DeviceEvent>();
